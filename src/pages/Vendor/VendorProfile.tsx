@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { User, Phone, MapPin, Edit2, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { db } from '../../utils/firebase';
+import { doc } from 'firebase/firestore';
 
 const VendorProfile: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: currentUser?.name || '',
@@ -12,10 +14,19 @@ const VendorProfile: React.FC = () => {
     location: currentUser?.location || ''
   });
 
-  const handleSave = () => {
-    // In a real app, this would update the user profile via API
-    toast.success('Profile updated successfully!');
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!currentUser) return;
+
+    try {
+      const userRef = doc(db, "User", currentUser.uid);
+      updateUser(userRef, formData.location, formData.name, formData.phone);
+
+      toast.success("Profile updated successfully!");
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      toast.error("Failed to update profile.");
+    }
   };
 
   const handleCancel = () => {
