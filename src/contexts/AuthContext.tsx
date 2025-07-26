@@ -1,108 +1,87 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  name: string;
-  phone: string;
-  role: 'vendor' | 'supplier';
-  location: string;
-}
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  User,
+} from 'firebase/auth';
+import { auth, googleProvider } from '../utils/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 interface AuthContextType {
-  user: User | null;
-  login: (phone: string, password: string, role: 'vendor' | 'supplier') => Promise<boolean>;
-  register: (userData: {
-    name: string;
-    phone: string;
-    password: string;
-    role: 'vendor' | 'supplier';
-    location: string;
-  }) => Promise<boolean>;
-  logout: () => void;
-  isAuthenticated: boolean;
+  currentUser: User | null;
+  register: ({ email, password }: { email: string; password: string }) => Promise<User | null>;
+  googleSignIn: () => Promise<User | null>;
+  login: (email: string, password: string) => Promise<User | null>; 
+  logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
+// Hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+// Provider component
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
+  // Track auth state
   useEffect(() => {
-    const savedUser = localStorage.getItem('sevakart_user');
-    if (savedUser) {
-      const userData = JSON.parse(savedUser);
-      setUser(userData);
-      setIsAuthenticated(true);
-    }
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      setCurrentUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const login = async (phone: string, password: string, role: 'vendor' | 'supplier'): Promise<boolean> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simple validation for demo
-    if (phone.length === 10 && password.length >= 6) {
-      const userData: User = {
-        id: `${role}_${phone}`,
-        name: role === 'vendor' ? 'Ram Kumar' : 'Ramesh Suppliers',
-        phone: phone,
-        role: role,
-        location: 'Delhi'
-      };
-      
-      setUser(userData);
-      setIsAuthenticated(true);
-      localStorage.setItem('sevakart_user', JSON.stringify(userData));
-      return true;
+  // Email/Password registration
+  const register = async ({ email, password }: { email: string; password: string }) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      return userCredential.user;
+    } catch (err) {
+      console.error('Registration error:', err);
+      return null;
     }
-    return false;
   };
 
-  const register = async (userData: {
-    name: string;
-    phone: string;
-    password: string;
-    role: 'vendor' | 'supplier';
-    location: string;
-  }): Promise<boolean> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (userData.phone.length === 10 && userData.password.length >= 6 && userData.name.trim()) {
-      const newUser: User = {
-        id: `${userData.role}_${userData.phone}`,
-        name: userData.name,
-        phone: userData.phone,
-        role: userData.role,
-        location: userData.location
-      };
-      
-      setUser(newUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('sevakart_user', JSON.stringify(newUser));
-      return true;
+  // Google Sign-In
+  const googleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      return result.user;
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      return null;
     }
-    return false;
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('sevakart_user');
+  const login = async (email: string, password: string) => {
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error('Login error:', error);
+    return null;
+  }
+};
+
+  // Logout
+  const logout = async () => {
+    await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated }}>
-      {children}
+    <AuthContext.Provider value={{ currentUser, register, googleSignIn, login, logout }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

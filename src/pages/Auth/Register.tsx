@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Store, Phone, Lock, User, MapPin } from 'lucide-react';
+import { Store, Phone, Lock, User, MapPin, Mail } from 'lucide-react';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -9,50 +9,45 @@ const Register: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    email: '',
     password: '',
     role: 'vendor' as 'vendor' | 'supplier',
     location: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  
-  const { register } = useAuth();
+
+  const { register, googleSignIn } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!formData.phone || formData.phone.length !== 10) {
+
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.phone || formData.phone.length !== 10)
       newErrors.phone = 'Phone number must be 10 digits';
-    }
-    
-    if (!formData.password || formData.password.length < 6) {
+    if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = 'Valid email is required';
+    if (!formData.password || formData.password.length < 6)
       newErrors.password = 'Password must be at least 6 characters';
-    }
-    
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
-    }
-    
+    if (!formData.location.trim()) newErrors.location = 'Location is required';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
     try {
-      const success = await register(formData);
-      
-      if (success) {
+      const user = await register({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (user) {
         toast.success('Registration successful! Welcome to SevaKart!');
         navigate(formData.role === 'vendor' ? '/vendor/dashboard' : '/supplier/dashboard');
       } else {
@@ -67,11 +62,28 @@ const Register: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
+
     if (name === 'phone') {
       setFormData(prev => ({ ...prev, [name]: value.replace(/\D/g, '').slice(0, 10) }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const user = await googleSignIn();
+      if (user) {
+        toast.success('Signed in with Google!');
+        navigate('/vendor/dashboard');
+      } else {
+        toast.error('Google Sign-in failed');
+      }
+    } catch (error) {
+      toast.error('Google Sign-in error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -91,6 +103,7 @@ const Register: React.FC = () => {
 
         <div className="glass-card p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Name */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-text-dark mb-2">
                 Full Name
@@ -112,6 +125,7 @@ const Register: React.FC = () => {
               {errors.name && <p className="mt-1 text-sm text-danger">{errors.name}</p>}
             </div>
 
+            {/* Phone */}
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-text-dark mb-2">
                 Phone Number
@@ -133,6 +147,29 @@ const Register: React.FC = () => {
               {errors.phone && <p className="mt-1 text-sm text-danger">{errors.phone}</p>}
             </div>
 
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-text-dark mb-2">
+                Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-text-gray" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="Enter your email"
+                  className={`input-field pl-10 ${errors.email ? 'border-danger' : ''}`}
+                />
+              </div>
+              {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
+            </div>
+
+            {/* Password */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-dark mb-2">
                 Password
@@ -154,10 +191,9 @@ const Register: React.FC = () => {
               {errors.password && <p className="mt-1 text-sm text-danger">{errors.password}</p>}
             </div>
 
+            {/* Role */}
             <div>
-              <label className="block text-sm font-medium text-text-dark mb-3">
-                Register as
-              </label>
+              <label className="block text-sm font-medium text-text-dark mb-3">Register as</label>
               <div className="flex space-x-4">
                 <label className="flex items-center">
                   <input
@@ -166,7 +202,7 @@ const Register: React.FC = () => {
                     value="vendor"
                     checked={formData.role === 'vendor'}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-primary-purple focus:ring-primary-purple/20 border-gray-300"
+                    className="h-4 w-4 text-primary-purple border-gray-300"
                   />
                   <span className="ml-2 text-sm text-text-dark">Street Vendor</span>
                 </label>
@@ -177,13 +213,14 @@ const Register: React.FC = () => {
                     value="supplier"
                     checked={formData.role === 'supplier'}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-primary-purple focus:ring-primary-purple/20 border-gray-300"
+                    className="h-4 w-4 text-primary-purple border-gray-300"
                   />
                   <span className="ml-2 text-sm text-text-dark">Supplier</span>
                 </label>
               </div>
             </div>
 
+            {/* Location */}
             <div>
               <label htmlFor="location" className="block text-sm font-medium text-text-dark mb-2">
                 Location/City
@@ -205,6 +242,7 @@ const Register: React.FC = () => {
               {errors.location && <p className="mt-1 text-sm text-danger">{errors.location}</p>}
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -221,6 +259,16 @@ const Register: React.FC = () => {
                   <span>Create Account</span>
                 </>
               )}
+            </button>
+
+            {/* Google Sign-In */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              className="mt-3 w-full btn-secondary flex items-center justify-center space-x-2"
+            >
+              <img src="/google-icon.svg" alt="Google" className="h-5 w-5" />
+              <span>Sign in with Google</span>
             </button>
           </form>
 

@@ -1,46 +1,41 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Store, Phone, Lock, User } from 'lucide-react';
+import { Store, Lock, Mail, User } from 'lucide-react';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'vendor' | 'supplier'>('vendor');
+  const [role, setRole] = useState<'vendor' | 'supplier'>('vendor'); // Optional UI use
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ phone?: string; password?: string }>({});
-  
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = () => {
-    const newErrors: { phone?: string; password?: string } = {};
-    
-    if (!phone || phone.length !== 10) {
-      newErrors.phone = 'Phone number must be 10 digits';
+    const newErrors: { email?: string; password?: string } = {};
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Valid email is required';
     }
-    
     if (!password || password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
-      const success = await login(phone, password, role);
-      
-      if (success) {
+      const user = await login(email, password); // Firebase email login
+      if (user) {
         toast.success('Login successful!');
         navigate(role === 'vendor' ? '/vendor/dashboard' : '/supplier/dashboard');
       } else {
@@ -69,26 +64,28 @@ const Login: React.FC = () => {
 
         <div className="glass-card p-8">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Email Field */}
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-text-dark mb-2">
-                Phone Number
+              <label htmlFor="email" className="block text-sm font-medium text-text-dark mb-2">
+                Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-5 w-5 text-text-gray" />
+                  <Mail className="h-5 w-5 text-text-gray" />
                 </div>
                 <input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="Enter 10-digit phone number"
-                  className={`input-field pl-10 ${errors.phone ? 'border-danger' : ''}`}
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className={`input-field pl-10 ${errors.email ? 'border-danger' : ''}`}
                 />
               </div>
-              {errors.phone && <p className="mt-1 text-sm text-danger">{errors.phone}</p>}
+              {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
             </div>
 
+            {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-text-dark mb-2">
                 Password
@@ -109,10 +106,9 @@ const Login: React.FC = () => {
               {errors.password && <p className="mt-1 text-sm text-danger">{errors.password}</p>}
             </div>
 
+            {/* Optional Role Selection */}
             <div>
-              <label className="block text-sm font-medium text-text-dark mb-3">
-                Login as
-              </label>
+              <label className="block text-sm font-medium text-text-dark mb-3">Login as</label>
               <div className="flex space-x-4">
                 <label className="flex items-center">
                   <input
@@ -139,6 +135,7 @@ const Login: React.FC = () => {
               </div>
             </div>
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -158,6 +155,7 @@ const Login: React.FC = () => {
             </button>
           </form>
 
+          {/* Link to Register */}
           <div className="mt-6 text-center">
             <p className="text-sm text-text-gray">
               New user?{' '}
