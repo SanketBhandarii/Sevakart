@@ -14,7 +14,7 @@ import {
 
 const SupplierDashboard: React.FC = () => {
   const { orders, products } = useApp();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
 
   const todayOrders = orders.filter(order => {
     const today = new Date().toISOString().split('T')[0];
@@ -39,7 +39,7 @@ const SupplierDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark">Welcome back, {user?.name}!</h1>
+          <h1 className="text-2xl font-bold text-text-dark">Welcome back, {currentUser?.name}!</h1>
           <p className="text-text-gray">Here's your business overview today</p>
         </div>
       </div>

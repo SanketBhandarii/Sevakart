@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const Navigation: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -41,7 +41,7 @@ const Navigation: React.FC = () => {
     { path: '/supplier/profile', label: 'Profile', icon: User },
   ];
 
-  const links = user?.role === 'vendor' ? vendorLinks : supplierLinks;
+  const links = currentUser?.role === 'vendor' ? vendorLinks : supplierLinks;
 
   const NavLinks = ({ mobile = false, onLinkClick = () => {} }) => (
     <>
@@ -93,13 +93,13 @@ const Navigation: React.FC = () => {
               <div className="flex-shrink-0">
                 <div className="h-10 w-10 rounded-full bg-primary-purple flex items-center justify-center">
                   <span className="text-white font-semibold">
-                    {user?.name.charAt(0).toUpperCase()}
+                    {currentUser?.name?.charAt(0).toUpperCase()}
                   </span>
                 </div>
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-text-dark">{user?.name}</p>
-                <p className="text-xs text-text-gray capitalize">{user?.role}</p>
+                <p className="text-sm font-medium text-text-dark">{currentUser?.name}</p>
+                <p className="text-xs text-text-gray capitalize">{currentUser?.role}</p>
               </div>
             </div>
             
@@ -127,7 +127,7 @@ const Navigation: React.FC = () => {
           
           <div className="h-8 w-8 rounded-full bg-primary-purple flex items-center justify-center">
             <span className="text-white text-sm font-semibold">
-              {user?.name.charAt(0).toUpperCase()}
+              {currentUser?.name?.charAt(0).toUpperCase()}
             </span>
           </div>
         </div>
@@ -159,13 +159,13 @@ const Navigation: React.FC = () => {
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 rounded-full bg-primary-purple flex items-center justify-center">
                       <span className="text-white font-semibold">
-                        {user?.name.charAt(0).toUpperCase()}
+                        {currentUser?.name?.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm font-medium text-text-dark">{user?.name}</p>
-                    <p className="text-xs text-text-gray capitalize">{user?.role}</p>
+                    <p className="text-sm font-medium text-text-dark">{currentUser?.name}</p>
+                    <p className="text-xs text-text-gray capitalize">{currentUser?.role}</p>
                   </div>
                 </div>
                 

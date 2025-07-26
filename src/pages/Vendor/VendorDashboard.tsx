@@ -15,7 +15,7 @@ import {
 
 const VendorDashboard: React.FC = () => {
   const { orders, inventory, cart } = useApp();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
 
   const todayOrders = orders.filter(order => {
     const today = new Date().toISOString().split('T')[0];
@@ -47,7 +47,7 @@ const VendorDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark">Welcome back, {user?.name}!</h1>
+          <h1 className="text-2xl font-bold text-text-dark">Welcome back, {currentUser?.name}!</h1>
           <p className="text-text-gray">Here's what's happening with your business today</p>
         </div>
       </div>

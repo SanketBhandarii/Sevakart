@@ -4,12 +4,12 @@ import { User, Phone, MapPin, Edit2, Save, X, Store } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SupplierProfile: React.FC = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    location: user?.location || ''
+    name: currentUser?.name || '',
+    phone: currentUser?.phone || '',
+    location: currentUser?.location || ''
   });
 
   const handleSave = () => {
@@ -20,9 +20,9 @@ const SupplierProfile: React.FC = () => {
 
   const handleCancel = () => {
     setFormData({
-      name: user?.name || '',
-      phone: user?.phone || '',
-      location: user?.location || ''
+      name: currentUser?.name || '',
+      phone: currentUser?.phone || '',
+      location: currentUser?.location || ''
     });
     setIsEditing(false);
   };
@@ -80,7 +80,7 @@ const SupplierProfile: React.FC = () => {
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{user?.name}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{currentUser?.name}</p>
               )}
             </div>
 
@@ -97,7 +97,7 @@ const SupplierProfile: React.FC = () => {
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">+91 {user?.phone}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">+91 {currentUser?.phone}</p>
               )}
             </div>
 
@@ -114,7 +114,7 @@ const SupplierProfile: React.FC = () => {
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{user?.location}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{currentUser?.location}</p>
               )}
             </div>
 
@@ -122,7 +122,7 @@ const SupplierProfile: React.FC = () => {
               <label className="block text-sm font-medium text-text-dark mb-2">
                 Account Type
               </label>
-              <p className="text-text-dark bg-gray-50 p-3 rounded-lg capitalize">{user?.role}</p>
+              <p className="text-text-dark bg-gray-50 p-3 rounded-lg capitalize">{currentUser?.role}</p>
             </div>
           </div>
         </div>

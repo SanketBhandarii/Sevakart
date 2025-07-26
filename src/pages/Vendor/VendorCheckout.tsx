@@ -8,7 +8,7 @@ import LoadingSpinner from '../../components/Common/LoadingSpinner';
 
 const VendorCheckout: React.FC = () => {
   const { cart, updateCartQuantity, removeFromCart, cartTotal, clearCart, addOrder } = useApp();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   
   const [deliveryTime, setDeliveryTime] = useState('morning');
@@ -35,7 +35,7 @@ const VendorCheckout: React.FC = () => {
       }));
 
       addOrder({
-        vendor: user?.name || 'Unknown Vendor',
+        vendor: currentUser?.name || 'Unknown Vendor',
         items: orderItems,
         total: cartTotal,
         status: 'ordered',
@@ -137,9 +137,9 @@ const VendorCheckout: React.FC = () => {
                   Delivery Address
                 </label>
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-text-dark">{user?.name}</p>
-                  <p className="text-text-gray">{user?.location}</p>
-                  <p className="text-text-gray">Phone: +91 {user?.phone}</p>
+                  <p className="font-medium text-text-dark">{currentUser?.name}</p>
+                  <p className="text-text-gray">{currentUser?.location}</p>
+                  <p className="text-text-gray">Phone: +91 {currentUser?.phone}</p>
                 </div>
               </div>
 

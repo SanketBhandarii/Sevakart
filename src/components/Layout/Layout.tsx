@@ -7,9 +7,9 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { currentUser } = useAuth();
 
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return <>{children}</>;
   }
 

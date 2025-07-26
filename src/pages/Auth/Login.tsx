@@ -34,7 +34,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password); // Firebase email login
+      const user = await login(email, password,role); // Firebase email login
       if (user) {
         toast.success('Login successful!');
         navigate(role === 'vendor' ? '/vendor/dashboard' : '/supplier/dashboard');
