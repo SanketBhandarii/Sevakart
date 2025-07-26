@@ -1,35 +1,41 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { useApp } from '../../contexts/AppContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { 
-  ShoppingCart, 
-  Package, 
-  IndianRupee, 
-  Users, 
-  ArrowRight, 
+import React from "react";
+import { Link } from "react-router-dom";
+import { useApp } from "../../contexts/AppContext";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  ShoppingCart,
+  Package,
+  IndianRupee,
+  Users,
+  ArrowRight,
   TrendingUp,
   Clock,
-  AlertTriangle
-} from 'lucide-react';
+  AlertTriangle,
+} from "lucide-react";
 
 const VendorDashboard: React.FC = () => {
   const { orders, inventory, cart } = useApp();
   const { currentUser } = useAuth();
 
-  const todayOrders = orders.filter(order => {
-    const today = new Date().toISOString().split('T')[0];
+  const todayOrders = orders.filter((order) => {
+    const today = new Date().toISOString().split("T")[0];
     return order.date === today;
   });
 
-  const deliveredToday = todayOrders.filter(order => order.status === 'delivered').length;
-  const pendingToday = todayOrders.filter(order => order.status !== 'delivered').length;
+  const deliveredToday = todayOrders.filter(
+    (order) => order.status === "delivered"
+  ).length;
+  const pendingToday = todayOrders.filter(
+    (order) => order.status !== "delivered"
+  ).length;
 
   const totalItems = inventory.length;
-  const lowStockItems = inventory.filter(item => item.status === 'low' || item.status === 'critical').length;
+  const lowStockItems = inventory.filter(
+    (item) => item.status === "low" || item.status === "critical"
+  ).length;
 
   const weekSpending = orders
-    .filter(order => {
+    .filter((order) => {
       const orderDate = new Date(order.date);
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -40,15 +46,19 @@ const VendorDashboard: React.FC = () => {
   const recentActivities = [
     { text: "Tomatoes delivered", time: "2 hours ago", type: "success" },
     { text: "Oil order placed", time: "Yesterday", type: "info" },
-    { text: "Onions running low", time: "2 days ago", type: "warning" }
+    { text: "Onions running low", time: "2 days ago", type: "warning" },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark">Welcome back, {currentUser?.name}!</h1>
-          <p className="text-text-gray">Here's what's happening with your business today</p>
+          <h1 className="text-2xl font-bold text-text-dark">
+            Welcome back, {currentUser?.name}!
+          </h1>
+          <p className="text-text-gray">
+            Here's what's happening with your business today
+          </p>
         </div>
       </div>
 
@@ -58,8 +68,12 @@ const VendorDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">Today's Orders</p>
-              <p className="text-2xl font-bold text-text-dark">{todayOrders.length} Orders</p>
+              <p className="text-sm font-medium text-text-gray">
+                Today's Orders
+              </p>
+              <p className="text-2xl font-bold text-text-dark">
+                {todayOrders.length} Orders
+              </p>
               <p className="text-sm text-text-gray mt-1">
                 {deliveredToday} Delivered, {pendingToday} Pending
               </p>
@@ -68,7 +82,7 @@ const VendorDashboard: React.FC = () => {
               <ShoppingCart className="h-6 w-6 text-primary-purple" />
             </div>
           </div>
-          <Link 
+          <Link
             to="/vendor/orders"
             className="inline-flex items-center space-x-1 text-primary-purple hover:text-primary-purple/80 text-sm font-medium mt-4"
           >
@@ -81,8 +95,12 @@ const VendorDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">Current Stock</p>
-              <p className="text-2xl font-bold text-text-dark">{totalItems} Items</p>
+              <p className="text-sm font-medium text-text-gray">
+                Current Stock
+              </p>
+              <p className="text-2xl font-bold text-text-dark">
+                {totalItems} Items
+              </p>
               <p className="text-sm text-danger mt-1">
                 {lowStockItems} Low Stock
               </p>
@@ -91,7 +109,7 @@ const VendorDashboard: React.FC = () => {
               <Package className="h-6 w-6 text-warning" />
             </div>
           </div>
-          <Link 
+          <Link
             to="/vendor/inventory"
             className="inline-flex items-center space-x-1 text-primary-purple hover:text-primary-purple/80 text-sm font-medium mt-4"
           >
@@ -104,8 +122,12 @@ const VendorDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">This Week Spending</p>
-              <p className="text-2xl font-bold text-text-dark">₹{weekSpending.toLocaleString()}</p>
+              <p className="text-sm font-medium text-text-gray">
+                This Week Spending
+              </p>
+              <p className="text-2xl font-bold text-text-dark">
+                ₹{weekSpending.toLocaleString()}
+              </p>
               <div className="flex items-center space-x-1 mt-1">
                 <TrendingUp className="h-4 w-4 text-success" />
                 <p className="text-sm text-success">+15% from last week</p>
@@ -115,7 +137,7 @@ const VendorDashboard: React.FC = () => {
               <IndianRupee className="h-6 w-6 text-success" />
             </div>
           </div>
-          <Link 
+          <Link
             to="/vendor/orders"
             className="inline-flex items-center space-x-1 text-primary-purple hover:text-primary-purple/80 text-sm font-medium mt-4"
           >
@@ -128,16 +150,18 @@ const VendorDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Quick Actions */}
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-text-dark mb-4">Quick Actions</h3>
+          <h3 className="text-lg font-semibold text-text-dark mb-4">
+            Quick Actions
+          </h3>
           <div className="space-y-3">
-            <Link 
+            <Link
               to="/vendor/shop"
               className="w-full btn-primary flex items-center justify-center space-x-2"
             >
               <ShoppingCart size={20} />
               <span>Order Supplies</span>
             </Link>
-            <Link 
+            <Link
               to="/vendor/inventory"
               className="w-full btn-secondary flex items-center justify-center space-x-2"
             >
@@ -149,10 +173,14 @@ const VendorDashboard: React.FC = () => {
           {/* Favorite Suppliers */}
           <div className="mt-6 pt-6 border-t border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-text-gray">Favorite Suppliers</p>
-              <span className="text-lg font-semibold text-text-dark">8 Suppliers</span>
+              <p className="text-sm font-medium text-text-gray">
+                Favorite Suppliers
+              </p>
+              <span className="text-lg font-semibold text-text-dark">
+                8 Suppliers
+              </span>
             </div>
-            <Link 
+            <Link
               to="/vendor/shop"
               className="inline-flex items-center space-x-1 text-primary-purple hover:text-primary-purple/80 text-sm font-medium"
             >
@@ -164,20 +192,35 @@ const VendorDashboard: React.FC = () => {
 
         {/* Recent Activity */}
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-text-dark mb-4">Recent Activity</h3>
+          <h3 className="text-lg font-semibold text-text-dark mb-4">
+            Recent Activity
+          </h3>
           <div className="space-y-4">
             {recentActivities.map((activity, index) => (
               <div key={index} className="flex items-center space-x-3">
-                <div className={`p-2 rounded-full ${
-                  activity.type === 'success' ? 'bg-success/10' :
-                  activity.type === 'warning' ? 'bg-warning/10' : 'bg-primary-blue/10'
-                }`}>
-                  {activity.type === 'success' && <Package className="h-4 w-4 text-success" />}
-                  {activity.type === 'warning' && <AlertTriangle className="h-4 w-4 text-warning" />}
-                  {activity.type === 'info' && <Clock className="h-4 w-4 text-primary-blue" />}
+                <div
+                  className={`p-2 rounded-full ${
+                    activity.type === "success"
+                      ? "bg-success/10"
+                      : activity.type === "warning"
+                      ? "bg-warning/10"
+                      : "bg-primary-blue/10"
+                  }`}
+                >
+                  {activity.type === "success" && (
+                    <Package className="h-4 w-4 text-success" />
+                  )}
+                  {activity.type === "warning" && (
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                  )}
+                  {activity.type === "info" && (
+                    <Clock className="h-4 w-4 text-primary-blue" />
+                  )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-text-dark">{activity.text}</p>
+                  <p className="text-sm font-medium text-text-dark">
+                    {activity.text}
+                  </p>
                   <p className="text-xs text-text-gray">{activity.time}</p>
                 </div>
               </div>

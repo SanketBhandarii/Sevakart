@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { Store, Lock, Mail, User } from 'lucide-react';
-import LoadingSpinner from '../../components/Common/LoadingSpinner';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { Store, Lock, Mail, User } from "lucide-react";
+import LoadingSpinner from "../../components/Common/LoadingSpinner";
+import toast from "react-hot-toast";
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'vendor' | 'supplier'>('vendor'); // Optional UI use
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"vendor" | "supplier">("vendor"); // Optional UI use
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -18,10 +20,10 @@ const Login: React.FC = () => {
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
     if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Valid email is required';
+      newErrors.email = "Valid email is required";
     }
     if (!password || password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = "Password must be at least 6 characters";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -34,15 +36,17 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password,role); // Firebase email login
+      const user = await login(email, password, role); // Firebase email login
       if (user) {
-        toast.success('Login successful!');
-        navigate(role === 'vendor' ? '/vendor/dashboard' : '/supplier/dashboard');
+        toast.success("Login successful!");
+        navigate(
+          role === "vendor" ? "/vendor/dashboard" : "/supplier/dashboard"
+        );
       } else {
-        toast.error('Invalid credentials. Please try again.');
+        toast.error("Invalid credentials. Please try again.");
       }
     } catch (error) {
-      toast.error('Login failed. Please try again.');
+      toast.error("Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -55,10 +59,14 @@ const Login: React.FC = () => {
           <div className="flex justify-center">
             <div className="flex items-center space-x-2">
               <Store className="h-12 w-12 text-primary-purple" />
-              <span className="text-3xl font-bold text-text-dark">SevaKart</span>
+              <span className="text-3xl font-bold text-text-dark">
+                SevaKart
+              </span>
             </div>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-text-dark">Welcome back</h2>
+          <h2 className="mt-6 text-3xl font-bold text-text-dark">
+            Welcome back
+          </h2>
           <p className="mt-2 text-sm text-text-gray">Sign in to your account</p>
         </div>
 
@@ -66,7 +74,10 @@ const Login: React.FC = () => {
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-dark mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-text-dark mb-2"
+              >
                 Email
               </label>
               <div className="relative">
@@ -79,15 +90,22 @@ const Login: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className={`input-field pl-10 ${errors.email ? 'border-danger' : ''}`}
+                  className={`input-field pl-10 ${
+                    errors.email ? "border-danger" : ""
+                  }`}
                 />
               </div>
-              {errors.email && <p className="mt-1 text-sm text-danger">{errors.email}</p>}
+              {errors.email && (
+                <p className="mt-1 text-sm text-danger">{errors.email}</p>
+              )}
             </div>
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-dark mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-text-dark mb-2"
+              >
                 Password
               </label>
               <div className="relative">
@@ -100,34 +118,46 @@ const Login: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className={`input-field pl-10 ${errors.password ? 'border-danger' : ''}`}
+                  className={`input-field pl-10 ${
+                    errors.password ? "border-danger" : ""
+                  }`}
                 />
               </div>
-              {errors.password && <p className="mt-1 text-sm text-danger">{errors.password}</p>}
+              {errors.password && (
+                <p className="mt-1 text-sm text-danger">{errors.password}</p>
+              )}
             </div>
 
             {/* Optional Role Selection */}
             <div>
-              <label className="block text-sm font-medium text-text-dark mb-3">Login as</label>
+              <label className="block text-sm font-medium text-text-dark mb-3">
+                Login as
+              </label>
               <div className="flex space-x-4">
                 <label className="flex items-center">
                   <input
                     type="radio"
                     name="role"
                     value="vendor"
-                    checked={role === 'vendor'}
-                    onChange={(e) => setRole(e.target.value as 'vendor' | 'supplier')}
+                    checked={role === "vendor"}
+                    onChange={(e) =>
+                      setRole(e.target.value as "vendor" | "supplier")
+                    }
                     className="h-4 w-4 text-primary-purple focus:ring-primary-purple/20 border-gray-300"
                   />
-                  <span className="ml-2 text-sm text-text-dark">Street Vendor</span>
+                  <span className="ml-2 text-sm text-text-dark">
+                    Street Vendor
+                  </span>
                 </label>
                 <label className="flex items-center">
                   <input
                     type="radio"
                     name="role"
                     value="supplier"
-                    checked={role === 'supplier'}
-                    onChange={(e) => setRole(e.target.value as 'vendor' | 'supplier')}
+                    checked={role === "supplier"}
+                    onChange={(e) =>
+                      setRole(e.target.value as "vendor" | "supplier")
+                    }
                     className="h-4 w-4 text-primary-purple focus:ring-primary-purple/20 border-gray-300"
                   />
                   <span className="ml-2 text-sm text-text-dark">Supplier</span>
@@ -158,8 +188,11 @@ const Login: React.FC = () => {
           {/* Link to Register */}
           <div className="mt-6 text-center">
             <p className="text-sm text-text-gray">
-              New user?{' '}
-              <Link to="/register" className="font-medium text-primary-purple hover:text-primary-purple/80">
+              New user?{" "}
+              <Link
+                to="/register"
+                className="font-medium text-primary-purple hover:text-primary-purple/80"
+              >
                 Register here
               </Link>
             </p>

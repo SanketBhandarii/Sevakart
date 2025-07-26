@@ -13,7 +13,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 interface AppUser {
   uid: string;
   email?: string | null;
-  role?: 'vendor' | 'supplier';
+  role?: "vendor" | "supplier";
   name?: string;
   phone?: string;
   location?: string;
@@ -30,7 +30,11 @@ interface AuthContextType {
     location: string;
   }) => Promise<User | null>;
   googleSignIn: () => Promise<User | null>;
-  login: (email: string, password: string,role:string) => Promise<User | null>;
+  login: (
+    email: string,
+    password: string,
+    role: string
+  ) => Promise<User | null>;
   logout: () => Promise<void>;
 }
 
@@ -144,7 +148,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // ✅ Email/Password Login
-  const login = async (email: string, password: string,role:string) => {
+  const login = async (email: string, password: string, role: string) => {
     try {
       const userCredential = await signInWithEmailAndPassword(
         auth,

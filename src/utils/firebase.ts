@@ -1,9 +1,9 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";
-import { getAuth} from 'firebase/auth';
+import { getAuth } from "firebase/auth";
 import { GoogleAuthProvider } from "firebase/auth/web-extension";
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore } from "firebase/firestore";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -16,7 +16,7 @@ const firebaseConfig = {
   storageBucket: "sevakart-35a21.firebasestorage.app",
   messagingSenderId: "810446553458",
   appId: "1:810446553458:web:2a06e494a0bcbb07c7ddeb",
-  measurementId: "G-K9VVHB5X3V"
+  measurementId: "G-K9VVHB5X3V",
 };
 
 // Initialize Firebase
@@ -27,4 +27,4 @@ export const db = getFirestore(app);
 // Initialize Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
 
-export {googleProvider};
+export { googleProvider };
