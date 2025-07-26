@@ -1,0 +1,156 @@
+import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { User, Phone, MapPin, Edit2, Save, X, Store } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const SupplierProfile: React.FC = () => {
+  const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    phone: user?.phone || '',
+    location: user?.location || ''
+  });
+
+  const handleSave = () => {
+    // In a real app, this would update the user profile via API
+    toast.success('Profile updated successfully!');
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      name: user?.name || '',
+      phone: user?.phone || '',
+      location: user?.location || ''
+    });
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-text-dark">Profile</h1>
+        <p className="text-text-gray">Manage your supplier account information</p>
+      </div>
+
+      <div className="max-w-2xl">
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-text-dark">Supplier Information</h3>
+            {!isEditing ? (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Edit2 size={16} />
+                <span>Edit</span>
+              </button>
+            ) : (
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleSave}
+                  className="btn-primary flex items-center space-x-2"
+                >
+                  <Save size={16} />
+                  <span>Save</span>
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-text-gray hover:bg-gray-50 flex items-center space-x-2"
+                >
+                  <X size={16} />
+                  <span>Cancel</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-text-dark mb-2">
+                <Store className="inline h-4 w-4 mr-2" />
+                Business Name
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className="input-field"
+                />
+              ) : (
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{user?.name}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-dark mb-2">
+                <Phone className="inline h-4 w-4 mr-2" />
+                Phone Number
+              </label>
+              {isEditing ? (
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="input-field"
+                />
+              ) : (
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">+91 {user?.phone}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-dark mb-2">
+                <MapPin className="inline h-4 w-4 mr-2" />
+                Business Location
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  className="input-field"
+                />
+              ) : (
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{user?.location}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-dark mb-2">
+                Account Type
+              </label>
+              <p className="text-text-dark bg-gray-50 p-3 rounded-lg capitalize">{user?.role}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card p-6 mt-6">
+          <h3 className="text-lg font-semibold text-text-dark mb-4">Business Statistics</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-4 bg-primary-purple/10 rounded-lg">
+              <p className="text-2xl font-bold text-primary-purple">89</p>
+              <p className="text-sm text-text-gray">Total Orders</p>
+            </div>
+            <div className="text-center p-4 bg-success/10 rounded-lg">
+              <p className="text-2xl font-bold text-success">₹45,200</p>
+              <p className="text-sm text-text-gray">This Month</p>
+            </div>
+            <div className="text-center p-4 bg-primary-blue/10 rounded-lg">
+              <p className="text-2xl font-bold text-primary-blue">8</p>
+              <p className="text-sm text-text-gray">Products Listed</p>
+            </div>
+            <div className="text-center p-4 bg-warning/10 rounded-lg">
+              <p className="text-2xl font-bold text-warning">156</p>
+              <p className="text-sm text-text-gray">Active Customers</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SupplierProfile;
