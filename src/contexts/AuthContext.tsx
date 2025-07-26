@@ -8,7 +8,14 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth, googleProvider, db } from "../utils/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  doc,
+  DocumentData,
+  DocumentReference,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 
 interface AppUser {
   uid: string;
@@ -36,6 +43,13 @@ interface AuthContextType {
     role: string
   ) => Promise<User | null>;
   logout: () => Promise<void>;
+  setCurrentUser: React.Dispatch<React.SetStateAction<AppUser | null>>;
+  updateUser: (
+    userRef: DocumentReference<DocumentData, DocumentData>,
+    name: string,
+    phone: string,
+    location: string
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -173,9 +187,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setCurrentUser(null);
   };
 
+  const updateUser = async (
+    userRef: DocumentReference<DocumentData, DocumentData>,
+    location: string,
+    name: string,
+    phone: string
+  ) => {
+    await updateDoc(userRef, {
+      name,
+      phone,
+      location,
+    });
+    const updatedSnap = (await getDoc(userRef)).data();
+    if (updatedSnap) {
+      setCurrentUser({
+        uid: userRef.id,
+        email: updatedSnap.email,
+        name: updatedSnap.name,
+        phone: updatedSnap.phone,
+        location: updatedSnap.location,
+        role: updatedSnap.role,
+      });
+    }
+  };
+
   return (
     <AuthContext.Provider
-      value={{ currentUser, register, googleSignIn, login, logout }}
+      value={{
+        currentUser,
+        register,
+        googleSignIn,
+        login,
+        logout,
+        setCurrentUser,
+        updateUser,
+      }}
     >
       {!loading && children}
     </AuthContext.Provider>

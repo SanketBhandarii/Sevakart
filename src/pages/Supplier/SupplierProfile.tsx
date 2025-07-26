@@ -1,28 +1,39 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { User, Phone, MapPin, Edit2, Save, X, Store } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { Phone, MapPin, Edit2, Save, X, Store } from "lucide-react";
+import toast from "react-hot-toast";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../../utils/firebase";
 
 const SupplierProfile: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: currentUser?.name || '',
-    phone: currentUser?.phone || '',
-    location: currentUser?.location || ''
+    name: currentUser?.name || "",
+    phone: currentUser?.phone || "",
+    location: currentUser?.location || "",
   });
 
-  const handleSave = () => {
-    // In a real app, this would update the user profile via API
-    toast.success('Profile updated successfully!');
-    setIsEditing(false);
+  const handleSave = async () => {
+    if (!currentUser) return;
+
+    try {
+      const userRef = doc(db, "User", currentUser.uid);
+      updateUser(userRef, formData.location, formData.name, formData.phone);
+
+      toast.success("Profile updated successfully!");
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      toast.error("Failed to update profile.");
+    }
   };
 
   const handleCancel = () => {
     setFormData({
-      name: currentUser?.name || '',
-      phone: currentUser?.phone || '',
-      location: currentUser?.location || ''
+      name: currentUser?.name || "",
+      phone: currentUser?.phone || "",
+      location: currentUser?.location || "",
     });
     setIsEditing(false);
   };
@@ -31,13 +42,17 @@ const SupplierProfile: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-text-dark">Profile</h1>
-        <p className="text-text-gray">Manage your supplier account information</p>
+        <p className="text-text-gray">
+          Manage your supplier account information
+        </p>
       </div>
 
       <div className="max-w-2xl">
         <div className="glass-card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-text-dark">Supplier Information</h3>
+            <h3 className="text-lg font-semibold text-text-dark">
+              Supplier Information
+            </h3>
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
@@ -70,17 +85,21 @@ const SupplierProfile: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-text-dark mb-2">
                 <Store className="inline h-4 w-4 mr-2" />
-                Business Name
+                Your Name
               </label>
               {isEditing ? (
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{currentUser?.name}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">
+                  {currentUser?.name}
+                </p>
               )}
             </div>
 
@@ -93,11 +112,15 @@ const SupplierProfile: React.FC = () => {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, phone: e.target.value }))
+                  }
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">+91 {currentUser?.phone}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">
+                  +91 {currentUser?.phone}
+                </p>
               )}
             </div>
 
@@ -110,11 +133,18 @@ const SupplierProfile: React.FC = () => {
                 <input
                   type="text"
                   value={formData.location}
-                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
                   className="input-field"
                 />
               ) : (
-                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">{currentUser?.location}</p>
+                <p className="text-text-dark bg-gray-50 p-3 rounded-lg">
+                  {currentUser?.location}
+                </p>
               )}
             </div>
 
@@ -122,13 +152,17 @@ const SupplierProfile: React.FC = () => {
               <label className="block text-sm font-medium text-text-dark mb-2">
                 Account Type
               </label>
-              <p className="text-text-dark bg-gray-50 p-3 rounded-lg capitalize">{currentUser?.role}</p>
+              <p className="text-text-dark bg-gray-50 p-3 rounded-lg capitalize">
+                {currentUser?.role}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="glass-card p-6 mt-6">
-          <h3 className="text-lg font-semibold text-text-dark mb-4">Business Statistics</h3>
+          <h3 className="text-lg font-semibold text-text-dark mb-4">
+            Business Statistics
+          </h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center p-4 bg-primary-purple/10 rounded-lg">
               <p className="text-2xl font-bold text-primary-purple">89</p>
