@@ -168,7 +168,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const logout = async () => await signOut(auth);
+  const logout = async () => {
+    await signOut(auth);
+    setCurrentUser(null);
+  };
 
   return (
     <AuthContext.Provider
