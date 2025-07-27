@@ -133,7 +133,7 @@ function App() {
               />
               
               {/* Default Redirect */}
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<>Hello</>} />
             </Routes>
           </Layout>
           

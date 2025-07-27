@@ -1,12 +1,28 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { auth, db } from "../utils/firebase";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 
+// ========================= Interfaces =========================
 export interface Product {
-  id: number;
+  id: string;
   name: string;
   price: number;
   unit: string;
   category: string;
-  supplier: string;
+  supplier: string; // Supplier name
+  supplierId: string; // ✅ Supplier UID
   stock: number;
   image?: string;
 }
@@ -17,12 +33,12 @@ export interface CartItem extends Product {
 
 export interface Order {
   id: string;
-  vendor: string;
-  items: { name: string; qty: number; price: number }[];
+  vendor: string; // ✅ Vendor UID
+  items: { name: string; qty: number; price: number; supplierId?: string }[];
   total: number;
-  status: 'ordered' | 'shipped' | 'delivered';
-  date: string;
-  supplier?: string;
+  status: "ordered" | "shipped" | "delivered";
+  date: any; // Firestore timestamp or string
+  supplier?: string; // ✅ Supplier UID or "multiple"
 }
 
 export interface InventoryItem {
@@ -30,209 +46,372 @@ export interface InventoryItem {
   name: string;
   currentStock: number;
   unit: string;
-  status: 'good' | 'low' | 'critical';
+  status: "good" | "low" | "critical";
 }
 
 interface AppContextType {
-  // Products
   products: Product[];
+  categories: string[];
   filteredProducts: Product[];
   searchProducts: (query: string) => void;
   filterByCategory: (category: string) => void;
-  addProduct: (product: Omit<Product, 'id'>) => void;
-  updateProduct: (id: number, product: Partial<Product>) => void;
-  deleteProduct: (id: number) => void;
-  
-  // Cart
+  addProduct: (product: Omit<Product, "id">) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: number) => void;
-  updateCartQuantity: (productId: number, quantity: number) => void;
-  clearCart: () => void;
   cartTotal: number;
-  
-  // Orders
+  addToCart: (product: Product, quantity?: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => Promise<void>;
+
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'date'>) => void;
-  updateOrderStatus: (orderId: string, status: Order['status']) => void;
-  
-  // Inventory
+  addOrder: (
+    order: Omit<Order, "id" | "date" | "vendor"> & { vendorId: string }
+  ) => Promise<void>;
+  updateOrderStatus: (
+    orderId: string,
+    status: Order["status"]
+  ) => Promise<void>;
+  deleteOrder: (orderId: string) => Promise<void>;
+  reorder: (order: Order) => void;
+
   inventory: InventoryItem[];
-  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
-  updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => void;
+  addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<void>;
+  updateInventoryItem: (
+    id: string,
+    updates: Partial<InventoryItem>
+  ) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
 }
 
+// ========================= Context =========================
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useApp must be used within an AppProvider');
-  }
+  if (!context) throw new Error("useApp must be used within AppProvider");
   return context;
 };
 
-const sampleProducts: Product[] = [
-  { id: 1, name: "Tomatoes", price: 40, unit: "kg", category: "Vegetables", supplier: "Ramesh Suppliers", stock: 100 },
-  { id: 2, name: "Onions", price: 30, unit: "kg", category: "Vegetables", supplier: "Ramesh Suppliers", stock: 150 },
-  { id: 3, name: "Cooking Oil", price: 120, unit: "L", category: "Oil & Ghee", supplier: "Oil Depot", stock: 50 },
-  { id: 4, name: "Rice", price: 60, unit: "kg", category: "Flour & Rice", supplier: "Grain House", stock: 200 },
-  { id: 5, name: "Milk", price: 55, unit: "L", category: "Dairy", supplier: "Dairy Fresh", stock: 80 },
-  { id: 6, name: "Garam Masala", price: 300, unit: "kg", category: "Spices", supplier: "Spice King", stock: 25 },
-  { id: 7, name: "Wheat Flour", price: 45, unit: "kg", category: "Flour & Rice", supplier: "Grain House", stock: 120 },
-  { id: 8, name: "Green Chili", price: 80, unit: "kg", category: "Vegetables", supplier: "Ramesh Suppliers", stock: 60 }
-];
-
-const sampleOrders: Order[] = [
-  { id: "ORD001", vendor: "Ram Chaat Stall", items: [{ name: "Tomatoes", qty: 10, price: 40 }], total: 400, status: "delivered", date: "2024-12-19", supplier: "Ramesh Suppliers" },
-  { id: "ORD002", vendor: "Sharma Foods", items: [{ name: "Cooking Oil", qty: 2, price: 120 }], total: 240, status: "shipped", date: "2024-12-18", supplier: "Oil Depot" },
-  { id: "ORD003", vendor: "Delhi Snacks", items: [{ name: "Garam Masala", qty: 1, price: 300 }], total: 300, status: "ordered", date: "2024-12-17", supplier: "Spice King" }
-];
-
-const sampleInventory: InventoryItem[] = [
-  { id: "INV001", name: "Tomatoes", currentStock: 5, unit: "kg", status: "low" },
-  { id: "INV002", name: "Cooking Oil", currentStock: 2, unit: "L", status: "critical" },
-  { id: "INV003", name: "Rice", currentStock: 25, unit: "kg", status: "good" },
-  { id: "INV004", name: "Onions", currentStock: 15, unit: "kg", status: "good" }
-];
-
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>(sampleProducts);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(sampleProducts);
+// ========================= Provider =========================
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>(sampleOrders);
-  const [inventory, setInventory] = useState<InventoryItem[]>(sampleInventory);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  // Firestore References
+  const productsRef = collection(db, "Products");
+  const ordersRef = collection(db, "Order");
+  const categoryRef = collection(db, "Category");
+  const inventoryRef = collection(db, "Inventory");
+  const cartsRef = collection(db, "Cart");
 
+  const vendorUid = auth.currentUser?.uid;
+
+  // ========================= CATEGORIES (Realtime) =========================
+  useEffect(() => {
+    const unsub = onSnapshot(categoryRef, (snapshot) => {
+      const raw = snapshot.docs.map((doc) => {
+        const data = doc.data() as { name?: string };
+        return data.name?.trim() || doc.id;
+      });
+      const uniqueCategories = Array.from(new Set(raw));
+      setCategories(["all", ...uniqueCategories]);
+    });
+    return () => unsub();
+  }, []);
+
+  // ========================= PRODUCTS (Realtime) =========================
+  useEffect(() => {
+    const unsub = onSnapshot(productsRef, (snapshot) => {
+      const data = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Product)
+      );
+      setProducts(data);
+      setFilteredProducts(data);
+    });
+    return () => unsub();
+  }, []);
+
+  // ========================= PRODUCT FUNCTIONS =========================
   const searchProducts = (query: string) => {
-    if (!query.trim()) {
-      setFilteredProducts(products);
-      return;
-    }
-    
-    const filtered = products.filter(product =>
-      product.name.toLowerCase().includes(query.toLowerCase()) ||
-      product.category.toLowerCase().includes(query.toLowerCase()) ||
-      product.supplier.toLowerCase().includes(query.toLowerCase())
+    setFilteredProducts(
+      !query.trim()
+        ? products
+        : products.filter(
+            (p) =>
+              p.name.toLowerCase().includes(query.toLowerCase()) ||
+              p.category.toLowerCase().includes(query.toLowerCase()) ||
+              p.supplier.toLowerCase().includes(query.toLowerCase())
+          )
     );
-    setFilteredProducts(filtered);
   };
 
   const filterByCategory = (category: string) => {
-    if (category === 'all' || !category) {
-      setFilteredProducts(products);
-      return;
+    setFilteredProducts(
+      category === "all"
+        ? products
+        : products.filter((p) => p.category === category)
+    );
+  };
+
+  const addProduct = async (product: Omit<Product, "id">) => {
+    await addDoc(productsRef, product);
+  };
+
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    await updateDoc(doc(db, "Products", id), updates);
+  };
+
+  const deleteProduct = async (id: string) => {
+    await deleteDoc(doc(db, "Products", id));
+  };
+
+  // ========================= CART HELPERS (Firestore Only) =========================
+  const getCart = async (vendorId?: string) => {
+    if (!vendorId) return [];
+    const q = query(cartsRef, where("vendorId", "==", vendorId));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => docSnap.data() as CartItem);
+  };
+
+  const saveCart = async (vendorId: string, cartItems: CartItem[]) => {
+    if (!vendorId) return;
+    const q = query(cartsRef, where("vendorId", "==", vendorId));
+    const snapshot = await getDocs(q);
+    for (const d of snapshot.docs) {
+      await deleteDoc(doc(db, "Carts", d.id));
     }
-    
-    const filtered = products.filter(product => product.category === category);
-    setFilteredProducts(filtered);
+    for (const item of cartItems) {
+      await setDoc(doc(db, "Carts", `${vendorId}_${item.id}`), {
+        vendorId,
+        ...item,
+      });
+    }
   };
 
-  const addProduct = (product: Omit<Product, 'id'>) => {
-    const newProduct = { ...product, id: Date.now() };
-    setProducts(prev => [...prev, newProduct]);
-    setFilteredProducts(prev => [...prev, newProduct]);
+  const clearCartDB = async (vendorId?: string) => {
+    if (!vendorId) return;
+    const q = query(cartsRef, where("vendorId", "==", vendorId));
+    const snapshot = await getDocs(q);
+    for (const d of snapshot.docs) {
+      await deleteDoc(doc(db, "Carts", d.id));
+    }
   };
 
-  const updateProduct = (id: number, updates: Partial<Product>) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-    setFilteredProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-  };
 
-  const deleteProduct = (id: number) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-    setFilteredProducts(prev => prev.filter(p => p.id !== id));
-  };
+  // ========================= LOAD CART FROM FIRESTORE =========================
+  useEffect(() => {
+    const loadCart = async () => {
+      if (!vendorUid) return;
+      const savedCart = await getCart(vendorUid);
+      setCart(savedCart);
+    };
+    loadCart();
+  }, [vendorUid]);
+
+  // ========================= CART FUNCTIONS =========================
+  const cartTotal = cart.reduce((t, i) => t + i.price * i.quantity, 0);
 
   const addToCart = (product: Product, quantity: number = 1) => {
-    setCart(prev => {
-      const existingItem = prev.find(item => item.id === product.id);
-      if (existingItem) {
-        return prev.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { ...product, quantity }];
+    setCart((prev) => {
+      const exists = prev.find((i) => i.id === product.id);
+      const updated = exists
+        ? prev.map((i) =>
+            i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          )
+        : [...prev, { ...product, quantity }];
+      if (vendorUid) saveCart(vendorUid, updated).catch(console.error);
+      return updated;
     });
   };
 
-  const removeFromCart = (productId: number) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+  const removeFromCart = (id: string) => {
+    setCart((prev) => {
+      const updated = prev.filter((i) => i.id !== id);
+      if (vendorUid) saveCart(vendorUid, updated).catch(console.error);
+      return updated;
+    });
   };
 
-  const updateCartQuantity = (productId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    
-    setCart(prev =>
-      prev.map(item =>
-        item.id === productId ? { ...item, quantity } : item
-      )
-    );
+  const updateCartQuantity = (id: string, q: number) => {
+    setCart((prev) => {
+      const updated =
+        q <= 0
+          ? prev.filter((i) => i.id !== id)
+          : prev.map((i) => (i.id === id ? { ...i, quantity: q } : i));
+      if (vendorUid) saveCart(vendorUid, updated).catch(console.error);
+      return updated;
+    });
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
     setCart([]);
+    await clearCartDB(vendorUid);
   };
 
-  const addOrder = (order: Omit<Order, 'id' | 'date'>) => {
-    const newOrder: Order = {
-      ...order,
-      id: `ORD${String(orders.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0]
+  // ========================= ORDERS (Realtime) =========================
+  useEffect(() => {
+    const unsub = onSnapshot(ordersRef, (snapshot) => {
+      const data = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Order)
+      );
+      setOrders(data);
+    });
+    return () => unsub();
+  }, []);
+
+  // ✅ Reorder: load previous items back into cart
+  const reorder = async (order: Order) => {
+    // 1️⃣ Map previous order items into new cart items
+    const mappedItems: CartItem[] = order.items.map((item) => {
+      const originalProduct = products.find(
+        (p) => p.name === item.name && p.supplierId === item.supplierId
+      );
+
+      return {
+        id: originalProduct?.id || Math.random().toString(36).slice(2),
+        name: item.name,
+        price: item.price,
+        unit: originalProduct?.unit || "unit",
+        category: originalProduct?.category || "Reordered",
+        supplier: originalProduct?.supplier || "Previous Supplier",
+        supplierId: item.supplierId || "",
+        stock: originalProduct?.stock || 100,
+        quantity: item.qty,
+        image: originalProduct?.image,
+      };
+    });
+
+    // 2️⃣ Update cart with reordered items
+    setCart(mappedItems);
+
+    // 3️⃣ Determine supplier field (single or multiple)
+    const supplierIds = [
+      ...new Set(mappedItems.map((i) => i.supplierId || "")),
+    ];
+    const supplierField =
+      supplierIds.length === 1 ? supplierIds[0] : "multiple";
+
+    // 4️⃣ Create a new order object
+    const newOrder = {
+      vendor: auth.currentUser?.uid || order.vendor, // ✅ Current vendor UID or fallback
+      items: mappedItems.map((i) => ({
+        name: i.name,
+        qty: i.quantity,
+        price: i.price,
+        supplierId: i.supplierId || "",
+      })),
+      total: mappedItems.reduce((t, i) => t + i.price * i.quantity, 0),
+      status: "ordered" as const,
+      supplier: supplierField,
+      date: serverTimestamp(),
     };
-    setOrders(prev => [newOrder, ...prev]);
+
+    // 5️⃣ Save new order in Firestore
+    await addDoc(collection(db, "Order"), newOrder);
   };
 
-  const updateOrderStatus = (orderId: string, status: Order['status']) => {
-    setOrders(prev =>
-      prev.map(order =>
-        order.id === orderId ? { ...order, status } : order
-      )
-    );
-  };
+  // ✅ Add Order: stores supplier UID & vendor UID
+  const addOrder = async (
+    order: Omit<Order, "id" | "date" | "vendor"> & { vendorId: string }
+  ) => {
+    const supplierIds = [
+      ...new Set(order.items.map((item) => item.supplierId || "")),
+    ];
+    const supplierField =
+      supplierIds.length === 1 ? supplierIds[0] : "multiple";
 
-  const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: `INV${String(inventory.length + 1).padStart(3, '0')}`
+    const cleanItems = order.items.map((item) => ({
+      name: String(item.name || ""),
+      qty: Number(item.qty) || 0,
+      price: Number(item.price) || 0,
+      supplierId: item.supplierId || "",
+    }));
+
+    const newOrder = {
+      vendor: auth.currentUser?.uid, // ✅ Vendor UID from caller
+      items: cleanItems,
+      total: Number(order.total) || 0,
+      status: order.status || "ordered",
+      supplier: supplierField, // ✅ Single supplier UID or "multiple"
+      date: serverTimestamp(),
     };
-    setInventory(prev => [...prev, newItem]);
+
+    await addDoc(ordersRef, newOrder);
   };
 
-  const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
-    setInventory(prev =>
-      prev.map(item => item.id === id ? { ...item, ...updates } : item)
-    );
+  const updateOrderStatus = async (
+    orderId: string,
+    status: Order["status"]
+  ) => {
+    await updateDoc(doc(db, "Order", orderId), { status });
+  };
+
+  const deleteOrder = async (orderId: string) => {
+    await deleteDoc(doc(db, "Order", orderId));
+  };
+
+  // ========================= INVENTORY (Placeholder) =========================
+  useEffect(() => {
+    const unsub = onSnapshot(inventoryRef, (snapshot) => {
+      const data = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as InventoryItem)
+      );
+      setInventory(data);
+    });
+    return () => unsub();
+  }, []);
+
+  const addInventoryItem = async (item: Omit<InventoryItem, "id">) => {
+    await addDoc(inventoryRef, item);
+  };
+
+  const updateInventoryItem = async (
+    id: string,
+    updates: Partial<InventoryItem>
+  ) => {
+    await updateDoc(doc(db, "Inventory", id), updates);
+  };
+
+  const deleteInventoryItem = async (id: string) => {
+    await deleteDoc(doc(db, "Inventory", id));
   };
 
   return (
-    <AppContext.Provider value={{
-      products,
-      filteredProducts,
-      searchProducts,
-      filterByCategory,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      cart,
-      addToCart,
-      removeFromCart,
-      updateCartQuantity,
-      clearCart,
-      cartTotal,
-      orders,
-      addOrder,
-      updateOrderStatus,
-      inventory,
-      addInventoryItem,
-      updateInventoryItem
-    }}>
+    <AppContext.Provider
+      value={{
+        products,
+        filteredProducts,
+        searchProducts,
+        filterByCategory,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        cart,
+        addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        clearCart,
+        cartTotal,
+        orders,
+        addOrder,
+        updateOrderStatus,
+        deleteOrder,
+        reorder,
+        inventory,
+        addInventoryItem,
+        updateInventoryItem,
+        deleteInventoryItem,
+        categories,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

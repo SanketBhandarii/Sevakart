@@ -1,34 +1,59 @@
-import React, { useState } from 'react';
-import { useApp } from '../../contexts/AppContext';
-import { Package, AlertTriangle, CheckCircle, Plus, ShoppingCart } from 'lucide-react';
-import Modal from '../../components/Common/Modal';
-import toast from 'react-hot-toast';
+import React, { useState } from "react";
+import { useApp } from "../../contexts/AppContext";
+import {
+  Package,
+  AlertTriangle,
+  CheckCircle,
+  Plus,
+  ShoppingCart,
+} from "lucide-react";
+import Modal from "../../components/Common/Modal";
+import toast from "react-hot-toast";
+import { auth, db } from "../../utils/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 const VendorInventory: React.FC = () => {
-  const { inventory, addInventoryItem, addToCart, products } = useApp();
+  const {
+    inventory,
+    addInventoryItem,
+    updateInventoryItem,
+    products,
+    addOrder,
+    filterByCategory,
+  } = useApp();
+
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [isReorderModalOpen, setIsReorderModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [orderQty, setOrderQty] = useState(5);
+
   const [newItem, setNewItem] = useState({
-    name: '',
+    name: "",
     currentStock: 0,
-    unit: 'kg',
-    status: 'good' as 'good' | 'low' | 'critical'
+    unit: "kg",
+    status: "good" as "good" | "low" | "critical",
   });
 
   const totalItems = inventory.length;
-  const lowStockItems = inventory.filter(item => item.status === 'low').length;
-  const criticalStockItems = inventory.filter(item => item.status === 'critical').length;
+  const lowStockItems = inventory.filter(
+    (item) => item.status === "low"
+  ).length;
+  const criticalStockItems = inventory.filter(
+    (item) => item.status === "critical"
+  ).length;
   const totalValue = inventory.reduce((total, item) => {
-    const productPrice = products.find(p => p.name === item.name)?.price || 50;
-    return total + (item.currentStock * productPrice);
+    const productPrice =
+      products.find((p) => p.name === item.name)?.price || 50;
+    return total + item.currentStock * productPrice;
   }, 0);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'good':
+      case "good":
         return <CheckCircle className="h-4 w-4 text-success" />;
-      case 'low':
+      case "low":
         return <AlertTriangle className="h-4 w-4 text-warning" />;
-      case 'critical':
+      case "critical":
         return <AlertTriangle className="h-4 w-4 text-danger" />;
       default:
         return <Package className="h-4 w-4 text-text-gray" />;
@@ -37,62 +62,163 @@ const VendorInventory: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'good':
-        return 'bg-success/10 text-success border-success/20';
-      case 'low':
-        return 'bg-warning/10 text-warning border-warning/20';
-      case 'critical':
-        return 'bg-danger/10 text-danger border-danger/20';
+      case "good":
+        return "bg-success/10 text-success border-success/20";
+      case "low":
+        return "bg-warning/10 text-warning border-warning/20";
+      case "critical":
+        return "bg-danger/10 text-danger border-danger/20";
       default:
-        return 'bg-gray-100 text-gray-600 border-gray-200';
+        return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
-  const handleAddItem = (e: React.FormEvent) => {
+  /** ✅ Add New Inventory Item */
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newItem.name.trim() || newItem.currentStock < 0) {
-      toast.error('Please fill all required fields correctly');
+      toast.error("Please fill all required fields correctly");
       return;
     }
 
-    // Determine status based on stock level
-    let status: 'good' | 'low' | 'critical' = 'good';
-    if (newItem.currentStock <= 2) {
-      status = 'critical';
-    } else if (newItem.currentStock <= 5) {
-      status = 'low';
+    let status: "good" | "low" | "critical" = "good";
+    if (newItem.currentStock <= 2) status = "critical";
+    else if (newItem.currentStock <= 5) status = "low";
+
+    try {
+      await addInventoryItem({
+        name: newItem.name.trim(),
+        currentStock: newItem.currentStock,
+        unit: newItem.unit,
+        status,
+      });
+      toast.success("Item added successfully!");
+      setIsAddItemModalOpen(false);
+      setNewItem({ name: "", currentStock: 0, unit: "kg", status: "good" });
+    } catch (err) {
+      console.error("Error adding item:", err);
+      toast.error("Failed to add item");
     }
-
-    addInventoryItem({
-      ...newItem,
-      status
-    });
-
-    toast.success('Item added to inventory successfully!');
-    setIsAddItemModalOpen(false);
-    setNewItem({ name: '', currentStock: 0, unit: 'kg', status: 'good' });
   };
 
-  const handleReorder = (itemName: string) => {
-    const product = products.find(p => p.name === itemName);
-    if (product) {
-      addToCart(product, 5); // Add 5 units by default
-      toast.success(`${itemName} added to cart for reorder!`);
-      window.location.href = '/vendor/shop';
-    } else {
-      toast.error('Product not found in shop');
+  /** ✅ Open Reorder Modal */
+  const openReorderModal = (item: any) => {
+    setSelectedItem(item);
+    setOrderQty(5);
+    setIsReorderModalOpen(true);
+  };
+
+  /** ✅ Confirm Reorder (fetch existing order and update qty) */
+  const confirmReorder = async () => {
+    if (!selectedItem) return;
+
+    const vendorId = auth.currentUser?.uid || "currentVendor";
+    console.log(
+      "🔍 Reorder started for Vendor:",
+      vendorId,
+      "Product:",
+      selectedItem.name
+    );
+
+    try {
+      const ordersRef = collection(db, "Order");
+      const q = query(ordersRef, where("vendor", "==", vendorId));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        console.warn("⚠️ No orders found for vendor. Creating a new order.");
+        return createNewOrder(vendorId);
+      }
+
+      console.log("📦 Found existing orders for vendor:", snapshot.docs);
+      // ✅ Filter manually for product match
+      const matchingDoc = snapshot.docs.find((doc) =>
+        doc
+          .data()
+          .items?.some(
+            (i: any) =>
+              i.name?.toLowerCase() === selectedItem.name?.toLowerCase()
+          )
+      );
+      console.log("🔍 Matching Order Document:", matchingDoc?.id);
+
+      if (!matchingDoc) {
+        console.warn(
+          "⚠️ No matching product found in vendor's orders. Creating a new order."
+        );
+        return createNewOrder(vendorId);
+      }
+
+      const orderDoc = matchingDoc.data();
+      console.log("🟢 Found matching order:", orderDoc);
+      console.log("QTY",orderQty);
+      // ✅ Update the qty for selected product
+      const updatedItems = orderDoc.items.map((i: any) =>
+        i.name.toLowerCase() === selectedItem.name.toLowerCase() ? { ...i, qty: orderQty } : i
+      );
+
+      const newTotal = updatedItems.reduce(
+        (sum: number, i: any) => sum + i.qty * i.price,
+        0
+      );
+
+      const orderPayload = {
+        vendorId,
+        supplier: orderDoc.supplier || "",
+        status: "ordered" as const,
+        total: newTotal,
+        items: updatedItems,
+      };
+
+      console.log("📦 Final Order Payload (Update):", orderPayload);
+
+      await addOrder(orderPayload);
+      filterByCategory("all");
+      toast.success(`${selectedItem.name} reordered (${orderQty} units)!`);
+      setIsReorderModalOpen(false);
+    } catch (err) {
+      console.error("❌ Reorder Error:", err);
+      toast.error("Failed to reorder item.");
     }
+  };
+
+  /** ✅ Helper to create a new order if no previous order exists */
+  const createNewOrder = async (vendorId: string) => {
+    const product = products.find((p) => p.name === selectedItem.name);
+    if (!product) {
+      toast.error("Product not found in catalog");
+      return;
+    }
+    const fallbackPayload = {
+      vendorId,
+      supplier: product.supplierId || "",
+      status: "ordered" as const,
+      total: product.price * orderQty,
+      items: [
+        {
+          name: product.name,
+          qty: orderQty,
+          price: product.price,
+          supplierId: product.supplierId || "",
+        },
+      ],
+    };
+    console.log("📦 Creating new order with payload:", fallbackPayload);
+    await addOrder(fallbackPayload);
+    filterByCategory("all");
+    toast.success(`${product.name} reordered (${orderQty} units)!`);
+    setIsReorderModalOpen(false);
   };
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark">Inventory Management</h1>
+          <h1 className="text-2xl font-bold">Inventory Management</h1>
           <p className="text-text-gray">Track and manage your stock levels</p>
         </div>
-        
         <button
           onClick={() => setIsAddItemModalOpen(true)}
           className="btn-primary flex items-center space-x-2"
@@ -102,101 +228,67 @@ const VendorInventory: React.FC = () => {
         </button>
       </div>
 
-      {/* Stock Overview Cards */}
+      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="glass-card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-gray">Total Items</p>
-              <p className="text-2xl font-bold text-text-dark">{totalItems}</p>
-            </div>
-            <div className="p-3 bg-primary-purple/10 rounded-lg">
-              <Package className="h-6 w-6 text-primary-purple" />
-            </div>
-          </div>
+          <p>Total Items</p>
+          <p className="text-2xl font-bold">{totalItems}</p>
         </div>
-
         <div className="glass-card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-gray">Low Stock</p>
-              <p className="text-2xl font-bold text-warning">{lowStockItems}</p>
-            </div>
-            <div className="p-3 bg-warning/10 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-warning" />
-            </div>
-          </div>
+          <p>Low Stock</p>
+          <p className="text-2xl font-bold text-warning">{lowStockItems}</p>
         </div>
-
         <div className="glass-card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-gray">Critical Stock</p>
-              <p className="text-2xl font-bold text-danger">{criticalStockItems}</p>
-            </div>
-            <div className="p-3 bg-danger/10 rounded-lg">
-              <AlertTriangle className="h-6 w-6 text-danger" />
-            </div>
-          </div>
+          <p>Critical Stock</p>
+          <p className="text-2xl font-bold text-danger">{criticalStockItems}</p>
         </div>
-
         <div className="glass-card p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-text-gray">Total Value</p>
-              <p className="text-2xl font-bold text-success">₹{totalValue.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-success/10 rounded-lg">
-              <Package className="h-6 w-6 text-success" />
-            </div>
-          </div>
+          <p>Total Value</p>
+          <p className="text-2xl font-bold text-success">
+            ₹{totalValue.toLocaleString()}
+          </p>
         </div>
       </div>
 
-      {/* Stock List */}
+      {/* Inventory Table */}
       <div className="glass-card">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-text-dark">Stock Items</h3>
+        <div className="p-6 border-b">
+          <h3 className="text-lg font-semibold">Stock Items</h3>
         </div>
-        
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Item Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Current Stock
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Action
-                </th>
+                <th className="px-6 py-3 text-left">Item</th>
+                <th className="px-6 py-3 text-left">Stock</th>
+                <th className="px-6 py-3 text-left">Status</th>
+                <th className="px-6 py-3 text-left">Action</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {inventory.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-text-dark">{item.name}</div>
+                  <td className="px-6 py-4">{item.name}</td>
+                  <td className="px-6 py-4">
+                    {item.currentStock} {item.unit}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-text-dark">{item.currentStock} {item.unit}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full border ${getStatusColor(item.status)}`}>
+                  <td className="px-6 py-4">
+                    <div
+                      className={`inline-flex items-center px-3 py-1 rounded-full border ${getStatusColor(
+                        item.status
+                      )}`}
+                    >
                       {getStatusIcon(item.status)}
-                      <span className="text-sm font-medium capitalize">{item.status} Stock</span>
+                      <span className="ml-2 capitalize">
+                        {item.status} Stock
+                      </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {(item.status === 'low' || item.status === 'critical') && (
+                  <td className="px-6 py-4">
+                    {(item.status === "low" || item.status === "critical") && (
                       <button
-                        onClick={() => handleReorder(item.name)}
-                        className="btn-secondary flex items-center space-x-1 text-sm px-3 py-1"
+                        onClick={() => openReorderModal(item)}
+                        className="btn-secondary flex items-center space-x-1 px-3 py-1 text-sm"
                       >
                         <ShoppingCart size={14} />
                         <span>Reorder</span>
@@ -207,84 +299,81 @@ const VendorInventory: React.FC = () => {
               ))}
             </tbody>
           </table>
-
           {inventory.length === 0 && (
             <div className="text-center py-12">
-              <Package className="h-12 w-12 text-text-gray mx-auto mb-4" />
-              <p className="text-text-gray">No inventory items found</p>
+              <Package className="h-12 w-12 mx-auto mb-4" />
+              <p>No inventory items found</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Add New Item Modal */}
+      {/* Add Item Modal */}
       <Modal
         isOpen={isAddItemModalOpen}
         onClose={() => setIsAddItemModalOpen(false)}
-        title="Add New Inventory Item"
+        title="Add New Item"
       >
         <form onSubmit={handleAddItem} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-2">
-              Item Name
-            </label>
-            <input
-              type="text"
-              value={newItem.name}
-              onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Enter item name"
-              className="input-field"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-2">
-              Current Quantity
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={newItem.currentStock}
-              onChange={(e) => setNewItem(prev => ({ ...prev, currentStock: parseInt(e.target.value) || 0 }))}
-              placeholder="Enter quantity"
-              className="input-field"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-2">
-              Unit
-            </label>
-            <select
-              value={newItem.unit}
-              onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
-              className="input-field"
-            >
-              <option value="kg">kg</option>
-              <option value="L">L</option>
-              <option value="piece">piece</option>
-              <option value="packet">packet</option>
-            </select>
-          </div>
-
-          <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={() => setIsAddItemModalOpen(false)}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-text-gray hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 btn-primary"
-            >
-              Add Item
-            </button>
-          </div>
+          <input
+            type="text"
+            value={newItem.name}
+            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+            className="input-field"
+            placeholder="Item Name"
+            required
+          />
+          <input
+            type="number"
+            min="0"
+            value={newItem.currentStock}
+            onChange={(e) =>
+              setNewItem({
+                ...newItem,
+                currentStock: parseInt(e.target.value) || 0,
+              })
+            }
+            className="input-field"
+            placeholder="Quantity"
+            required
+          />
+          <select
+            value={newItem.unit}
+            onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+            className="input-field"
+          >
+            <option value="kg">kg</option>
+            <option value="L">L</option>
+            <option value="piece">piece</option>
+            <option value="packet">packet</option>
+          </select>
+          <button type="submit" className="btn-primary w-full">
+            Add Item
+          </button>
         </form>
+      </Modal>
+
+      {/* Reorder Modal */}
+      <Modal
+        isOpen={isReorderModalOpen}
+        onClose={() => setIsReorderModalOpen(false)}
+        title="Reorder Item"
+      >
+        <div className="space-y-4">
+          <p>
+            Reordering: <strong>{selectedItem?.name}</strong>
+          </p>
+          <input
+            type="number"
+            min="1"
+            value={orderQty}
+            onChange={(e) => setOrderQty(Number(e.target.value))}
+            className="input-field"
+          />
+          <button onClick={confirmReorder} className="btn-primary w-full">
+            Confirm Reorder
+          </button>
+        </div>
       </Modal>
     </div>
   );
