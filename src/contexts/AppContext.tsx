@@ -67,20 +67,16 @@ interface AppContextType {
 
   orders: Order[];
   addOrder: (order: Omit<Order, "id" | "date" | "vendor">) => Promise<void>;
-  updateOrderStatus: (
-    orderId: string,
-    status: Order["status"]
-  ) => Promise<void>;
+  updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   reorder: (order: Order) => Promise<void>;
 
   inventory: InventoryItem[];
   addInventoryItem: (item: Omit<InventoryItem, "id">) => Promise<void>;
-  updateInventoryItem: (
-    id: string,
-    updates: Partial<InventoryItem>
-  ) => Promise<void>;
+  updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
+
+  addCategory: (name: string) => Promise<void>; // ✅ Added
 }
 
 // ========================= Context =========================
@@ -92,9 +88,7 @@ export const useApp = () => {
 };
 
 // ========================= Provider =========================
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -114,27 +108,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   // ========================= CATEGORIES (Realtime) =========================
   useEffect(() => {
     const unsub = onSnapshot(categoryRef, (snapshot) => {
-      const raw = snapshot.docs.map(
-        (doc) => (doc.data() as any).name || doc.id
-      );
+      const raw = snapshot.docs.map((doc) => (doc.data() as any).name || doc.id);
       setCategories(["all", ...new Set(raw)]);
     });
     return () => unsub();
   }, []);
 
+  // ✅ Add Category
+  const addCategory = async (name: string): Promise<void> => {
+    if (!name.trim()) return;
+    await addDoc(categoryRef, { name: name.trim() });
+  };
+
   // ========================= PRODUCTS (Realtime) =========================
   useEffect(() => {
     const unsub = onSnapshot(productsRef, (snapshot) => {
-      const data = snapshot.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as Product)
-      );
+      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
       setProducts(data);
       setFilteredProducts(data);
     });
     return () => unsub();
   }, []);
 
-  // ========================= PRODUCT FUNCTIONS =========================
   const searchProducts = (query: string) => {
     setFilteredProducts(
       !query.trim()
@@ -149,21 +144,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const filterByCategory = (category: string) => {
-    setFilteredProducts(
-      category === "all"
-        ? products
-        : products.filter((p) => p.category === category)
-    );
+    setFilteredProducts(category === "all" ? products : products.filter((p) => p.category === category));
   };
 
   const addProduct = async (product: Omit<Product, "id">): Promise<void> => {
     await addDoc(productsRef, product);
   };
 
-  const updateProduct = async (
-    id: string,
-    updates: Partial<Product>
-  ): Promise<void> => {
+  const updateProduct = async (id: string, updates: Partial<Product>): Promise<void> => {
     await updateDoc(doc(db, "Products", id), updates);
   };
 
@@ -171,7 +159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     await deleteDoc(doc(db, "Products", id));
   };
 
-  // ========================= CART (with supplierId) =========================
+  // ========================= CART =========================
   const getCart = async (vendorId?: string) => {
     if (!vendorId) return [];
     const q = query(cartsRef, where("vendorId", "==", vendorId));
@@ -179,18 +167,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     return snapshot.docs.map((docSnap) => docSnap.data() as CartItem);
   };
 
-  const saveCart = async (
-    vendorId: string,
-    cartItems: CartItem[]
-  ): Promise<void> => {
+  const saveCart = async (vendorId: string, cartItems: CartItem[]): Promise<void> => {
     const q = query(cartsRef, where("vendorId", "==", vendorId));
     const snap = await getDocs(q);
     for (const d of snap.docs) await deleteDoc(doc(db, "Cart", d.id));
     for (const item of cartItems) {
-      await setDoc(doc(db, "Cart", `${vendorId}_${item.id}`), {
-        vendorId,
-        ...item,
-      });
+      await setDoc(doc(db, "Cart", `${vendorId}_${item.id}`), { vendorId, ...item });
     }
   };
 
@@ -212,10 +194,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     setCart((prev) => {
       const exists = prev.find((i) => i.id === product.id);
       const updated = exists
-        ? prev.map((i) =>
-            i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
-          )
-        : [...prev, { ...product, quantity, supplier: product.supplier }]; // ✅ supplier stored
+        ? prev.map((i) => (i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i))
+        : [...prev, { ...product, quantity, supplier: product.supplier }];
       if (vendorUid) saveCart(vendorUid, updated);
       return updated;
     });
@@ -231,10 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateCartQuantity = (id: string, q: number) => {
     setCart((prev) => {
-      const updated =
-        q <= 0
-          ? prev.filter((i) => i.id !== id)
-          : prev.map((i) => (i.id === id ? { ...i, quantity: q } : i));
+      const updated = q <= 0 ? prev.filter((i) => i.id !== id) : prev.map((i) => (i.id === id ? { ...i, quantity: q } : i));
       if (vendorUid) saveCart(vendorUid, updated);
       return updated;
     });
@@ -245,7 +222,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     await clearCartDB(vendorUid);
   };
 
-  // ========================= ORDERS (with supplierId) =========================
+  // ========================= ORDERS =========================
   useEffect(() => {
     const unsub = onSnapshot(ordersRef, (snapshot) => {
       setOrders(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Order)));
@@ -253,10 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => unsub();
   }, []);
 
-  const addOrder = async (
-    order: Omit<Order, "id" | "date" | "vendor">
-  ): Promise<void> => {
-    // ✅ Attach supplierId from product list
+  const addOrder = async (order: Omit<Order, "id" | "date" | "vendor">): Promise<void> => {
     const updatedItems = order.items.map((item) => {
       const prod = products.find((p) => p.name === item.name);
       return { ...item, supplierId: prod?.supplier || "" };
@@ -299,10 +273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-  const updateOrderStatus = async (
-    orderId: string,
-    status: Order["status"]
-  ): Promise<void> => {
+  const updateOrderStatus = async (orderId: string, status: Order["status"]): Promise<void> => {
     await updateDoc(doc(db, "Order", orderId), { status });
   };
 
@@ -313,33 +284,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   // ========================= INVENTORY =========================
   useEffect(() => {
     if (!vendorUid) return;
-
-    // ✅ Query only inventory belonging to the logged-in vendor
     const q = query(inventoryRef, where("vendorId", "==", vendorUid));
     const unsub = onSnapshot(q, (snap) => {
-      setInventory(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as InventoryItem))
-      );
+      setInventory(snap.docs.map((d) => ({ id: d.id, ...d.data() } as InventoryItem)));
     });
     return () => unsub();
   }, [vendorUid]);
 
-  const addInventoryItem = async (
-    item: Omit<InventoryItem, "id" | "vendorId">
-  ) => {
-    if (!vendorUid)
-      throw new Error("Vendor must be logged in to add inventory");
-
-    await setDoc(doc(collection(db, "Inventory")), {
-      ...item,
-      vendorId: vendorUid, // ✅ Attach vendorId
-    });
+  const addInventoryItem = async (item: Omit<InventoryItem, "id" | "vendorId">) => {
+    if (!vendorUid) throw new Error("Vendor must be logged in to add inventory");
+    await setDoc(doc(collection(db, "Inventory")), { ...item, vendorId: vendorUid });
   };
 
-  const updateInventoryItem = async (
-    id: string,
-    updates: Partial<InventoryItem>
-  ): Promise<void> => {
+  const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>): Promise<void> => {
     await updateDoc(doc(db, "Inventory", id), updates);
   };
 
@@ -373,6 +330,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         updateInventoryItem,
         deleteInventoryItem,
         categories,
+        addCategory, // ✅ Added here
       }}
     >
       {children}

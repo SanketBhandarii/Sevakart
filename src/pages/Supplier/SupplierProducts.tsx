@@ -1,124 +1,142 @@
 import React, { useState, useEffect } from "react";
 import { useApp, Product } from "../../contexts/AppContext";
-import { Plus, Edit2, Trash2, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, Package, ListPlusIcon } from "lucide-react";
 import Modal from "../../components/Common/Modal";
 import toast from "react-hot-toast";
 import { auth } from "@/utils/firebase";
 
-// ✅ Move ProductForm OUTSIDE - this fixes the focus issue
+// ✅ Product Form with Dynamic Category Option
 const ProductForm = ({ 
-  onSubmit, 
-  title, 
-  formData, 
-  setFormData, 
-  categories, 
-  setIsAddModalOpen, 
-  setIsEditModalOpen, 
-  setEditingProduct, 
-  resetForm 
-}: { 
-  onSubmit: (e: React.FormEvent) => void; 
-  title: string;
-  formData: any;
-  setFormData: any;
-  categories: string[];
-  setIsAddModalOpen: any;
-  setIsEditModalOpen: any;
-  setEditingProduct: any;
-  resetForm: any;
-}) => (
-  <form onSubmit={onSubmit} className="space-y-4">
-    <div>
-      <label className="block text-sm font-medium mb-2">Product Name</label>
-      <input
-        type="text"
-        value={formData.name}
-        onChange={(e) => setFormData((p: any) => ({ ...p, name: e.target.value }))}
-        className="input-field"
-        required
-      />
-    </div>
+  onSubmit, title, formData, setFormData, categories,
+  setIsAddModalOpen, setIsEditModalOpen, setEditingProduct, resetForm,
+  addCategory // ✅ Pass addCategory to ProductForm
+}: any) => {
+  const [newCategory, setNewCategory] = useState("");
 
-    {/* Category */}
-    <div>
-      <label className="block text-sm font-medium mb-2">Category</label>
-      <select
-        value={formData.category}
-        onChange={(e) => setFormData((p: any) => ({ ...p, category: e.target.value }))}
-        className="input-field"
-      >
-        {categories.filter((c: string) => c !== "all").map((c: string) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-    </div>
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) {
+      toast.error("Enter a valid category name");
+      return;
+    }
+    try {
+      await addCategory(newCategory);
+      toast.success("Category added!");
+      setFormData((p: any) => ({ ...p, category: newCategory }));
+      setNewCategory("");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add category");
+    }
+  };
 
-    {/* Price & Unit */}
-    <div className="grid grid-cols-2 gap-4">
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {/* Product Name */}
       <div>
-        <label className="block text-sm font-medium mb-2">Price</label>
+        <label className="block text-sm font-medium mb-2">Product Name</label>
         <input
-          type="number"
-          min="0"
-          value={formData.price}
-          onChange={(e) => setFormData((p: any) => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
+          type="text"
+          value={formData.name}
+          onChange={(e) => setFormData((p: any) => ({ ...p, name: e.target.value }))}
           className="input-field"
           required
         />
       </div>
+
+      {/* Category */}
       <div>
-        <label className="block text-sm font-medium mb-2">Unit</label>
+        <label className="block text-sm font-medium mb-2">Category</label>
         <select
-          value={formData.unit}
-          onChange={(e) => setFormData((p: any) => ({ ...p, unit: e.target.value }))}
+          value={formData.category}
+          onChange={(e) => setFormData((p: any) => ({ ...p, category: e.target.value }))}
           className="input-field"
         >
-          <option value="kg">kg</option>
-          <option value="L">L</option>
-          <option value="piece">piece</option>
-          <option value="packet">packet</option>
+          {categories.filter((c: string) => c !== "all").map((c: string) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+          <option value="__add_new__"> Others</option>
         </select>
+
+        {/* If user selects Add New Category, show input */}
+        {formData.category === "__add_new__" && (
+          <div className="flex items-center space-x-2 mt-2">
+            <input
+              type="text"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="Enter new category"
+              className="input-field flex-1"
+            />
+            <button type="button" onClick={handleAddCategory} className="btn-primary px-3">
+              Add
+            </button>
+          </div>
+        )}
       </div>
-    </div>
 
-    {/* Stock */}
-    <div>
-      <label className="block text-sm font-medium mb-2">Stock Quantity</label>
-      <input
-        type="number"
-        min="0"
-        value={formData.stock}
-        onChange={(e) => setFormData((p: any) => ({ ...p, stock: parseInt(e.target.value) || 0 }))}
-        className="input-field"
-        required
-      />
-    </div>
+      {/* Price & Unit */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Price</label>
+          <input
+            type="number"
+            min="0"
+            value={formData.price}
+            onChange={(e) => setFormData((p: any) => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
+            className="input-field"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Unit</label>
+          <select
+            value={formData.unit}
+            onChange={(e) => setFormData((p: any) => ({ ...p, unit: e.target.value }))}
+            className="input-field"
+          >
+            <option value="kg">kg</option>
+            <option value="L">L</option>
+            <option value="piece">piece</option>
+            <option value="packet">packet</option>
+          </select>
+        </div>
+      </div>
 
-    {/* Buttons */}
-    <div className="flex space-x-3 pt-4">
-      <button
-        type="button"
-        onClick={() => {
-          setIsAddModalOpen(false);
-          setIsEditModalOpen(false);
-          setEditingProduct(null);
-          resetForm();
-        }}
-        className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50"
-      >
-        Cancel
-      </button>
-      <button type="submit" className="flex-1 btn-primary">
-        {title}
-      </button>
-    </div>
-  </form>
-);
+      {/* Stock */}
+      <div>
+        <label className="block text-sm font-medium mb-2">Stock Quantity</label>
+        <input
+          type="number"
+          min="0"
+          value={formData.stock}
+          onChange={(e) => setFormData((p: any) => ({ ...p, stock: parseInt(e.target.value) || 0 }))}
+          className="input-field"
+          required
+        />
+      </div>
+
+      {/* Buttons */}
+      <div className="flex space-x-3 pt-4">
+        <button
+          type="button"
+          onClick={() => {
+            setIsAddModalOpen(false);
+            setIsEditModalOpen(false);
+            setEditingProduct(null);
+            resetForm();
+          }}
+          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button type="submit" className="flex-1 btn-primary">{title}</button>
+      </div>
+    </form>
+  );
+};
 
 const SupplierProducts: React.FC = () => {
-  const { products, addProduct, updateProduct, deleteProduct, categories } = useApp();
+  const { products, addProduct, updateProduct, deleteProduct, categories, addCategory } = useApp(); // ✅ include addCategory
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -133,32 +151,26 @@ const SupplierProducts: React.FC = () => {
     supplier: "",
   });
 
-  // ✅ Filter products only for logged-in supplier
   const supplierUid = auth.currentUser?.uid || "";
   const supplierProducts = products.filter((p) => p.supplier === supplierUid);
 
-  // ✅ Initialize category with first available
   useEffect(() => {
     if (categories.length > 1 && !formData.category) {
       setFormData((prev) => ({ ...prev, category: categories[1] }));
     }
   }, [categories]);
 
-  // ✅ Add Product
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = { ...formData, supplier: supplierUid };
-
     if (!payload.name.trim() || payload.price <= 0 || payload.stock < 0) {
       toast.error("Please fill all required fields correctly");
       return;
     }
-
     if (supplierProducts.some((p) => p.name.toLowerCase() === payload.name.toLowerCase())) {
       toast.error("Product with this name already exists");
       return;
     }
-
     try {
       await addProduct(payload);
       toast.success("Product added successfully!");
@@ -170,11 +182,9 @@ const SupplierProducts: React.FC = () => {
     }
   };
 
-  // ✅ Edit Product
   const handleEditProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-
     try {
       await updateProduct(editingProduct.id, formData);
       toast.success("Product updated successfully!");
@@ -187,7 +197,6 @@ const SupplierProducts: React.FC = () => {
     }
   };
 
-  // ✅ Delete Product
   const handleDeleteProduct = async (id: string, name: string) => {
     if (window.confirm(`Delete product "${name}"?`)) {
       try {
@@ -200,7 +209,6 @@ const SupplierProducts: React.FC = () => {
     }
   };
 
-  // ✅ Open Edit Modal
   const openEditModal = (product: Product) => {
     setEditingProduct(product);
     setFormData({
@@ -214,7 +222,6 @@ const SupplierProducts: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  // ✅ Reset Form
   const resetForm = () => {
     setFormData({
       name: "",
@@ -238,7 +245,6 @@ const SupplierProducts: React.FC = () => {
 
       {/* Product Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
         {/* ➕ Add Product Card */}
         <div
           onClick={() => setIsAddModalOpen(true)}
@@ -257,7 +263,6 @@ const SupplierProducts: React.FC = () => {
             <div className="space-y-2">
               <h3 className="font-semibold">{product.name}</h3>
               <p className="text-sm text-gray-500">{product.category}</p>
-
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold text-purple-600">
                   ₹{product.price}/{product.unit}
@@ -270,7 +275,6 @@ const SupplierProducts: React.FC = () => {
                   {product.stock} in stock
                 </span>
               </div>
-
               <div className="flex space-x-2 pt-2">
                 <button onClick={() => openEditModal(product)} className="flex-1 btn-secondary text-sm flex items-center justify-center space-x-1">
                   <Edit2 size={14} /> <span>Edit</span>
@@ -303,6 +307,7 @@ const SupplierProducts: React.FC = () => {
           setIsEditModalOpen={setIsEditModalOpen}
           setEditingProduct={setEditingProduct}
           resetForm={resetForm}
+          addCategory={addCategory} // ✅ pass addCategory
         />
       </Modal>
 
@@ -317,6 +322,7 @@ const SupplierProducts: React.FC = () => {
           setIsEditModalOpen={setIsEditModalOpen}
           setEditingProduct={setEditingProduct}
           resetForm={resetForm}
+          addCategory={addCategory} // ✅ pass addCategory
         />
       </Modal>
     </div>
