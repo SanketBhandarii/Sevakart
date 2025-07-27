@@ -2,24 +2,32 @@ import React, { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { CheckCircle, X, Truck, Package, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { auth } from '../../utils/firebase'; // ✅ Import auth to get currentUser
 
 const SupplierOrders: React.FC = () => {
   const { orders, updateOrderStatus, deleteOrder } = useApp();
   const [activeTab, setActiveTab] = useState<'new' | 'processing' | 'completed'>('new');
 
-  // ✅ Categorize Orders
-  const newOrders = orders.filter(order => order.status === 'ordered');
-  const processingOrders = orders.filter(order => order.status === 'shipped');
-  const completedOrders = orders.filter(order => order.status === 'delivered');
+  // ✅ Get Current Supplier UID
+  const supplierUid = auth.currentUser?.uid;
 
-  // ✅ Handlers using AppContext methods
+  // ✅ Filter orders based on supplierId inside items[]
+  const supplierOrders = orders.filter(order =>
+    order.items.some((item: any) => item.supplierId === supplierUid)
+  );
+
+  // ✅ Categorize Filtered Orders
+  const newOrders = supplierOrders.filter(order => order.status === 'ordered');
+  const processingOrders = supplierOrders.filter(order => order.status === 'shipped');
+  const completedOrders = supplierOrders.filter(order => order.status === 'delivered');
+
+  // ✅ Handlers
   const handleAcceptOrder = async (orderId: string) => {
     await updateOrderStatus(orderId, 'shipped');
     toast.success('Order accepted and marked as shipped!');
   };
 
   const handleRejectOrder = async (orderId: string) => {
-    // 🔹 Optionally delete the order or update to "rejected" if you add such a status
     await deleteOrder(orderId);
     toast.success('Order rejected and removed successfully');
   };
@@ -29,7 +37,7 @@ const SupplierOrders: React.FC = () => {
     toast.success('Order marked as delivered!');
   };
 
-  // ✅ Status Icon Helper
+  // ✅ Status Icon
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ordered': return <Clock className="h-4 w-4" />;
@@ -41,12 +49,9 @@ const SupplierOrders: React.FC = () => {
 
   // ✅ Reusable Order Card
   const OrderCard = ({ order, showActions = false, showDelivered = false }: { 
-    order: any; 
-    showActions?: boolean; 
-    showDelivered?: boolean;
+    order: any; showActions?: boolean; showDelivered?: boolean;
   }) => (
     <div className="glass-card p-6">
-      {/* Order Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="font-semibold text-text-dark">Order #{order.id}</h3>
@@ -60,7 +65,6 @@ const SupplierOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* Order Details */}
       <div className="space-y-3 mb-4">
         <div className="flex justify-between">
           <span className="text-text-gray">Vendor:</span>
@@ -70,12 +74,14 @@ const SupplierOrders: React.FC = () => {
         <div>
           <span className="text-text-gray">Items Ordered:</span>
           <div className="mt-2 space-y-1">
-            {order.items.map((item: any, index: number) => (
-              <div key={index} className="flex justify-between text-sm">
-                <span className="text-text-dark">{item.name} × {item.qty}</span>
-                <span className="font-medium text-text-dark">₹{item.price * item.qty}</span>
-              </div>
-            ))}
+            {order.items
+              .filter((item: any) => item.supplierId === supplierUid) // ✅ show only this supplier's items
+              .map((item: any, index: number) => (
+                <div key={index} className="flex justify-between text-sm">
+                  <span className="text-text-dark">{item.name} × {item.qty}</span>
+                  <span className="font-medium text-text-dark">₹{item.price * item.qty}</span>
+                </div>
+              ))}
           </div>
         </div>
 
@@ -85,33 +91,23 @@ const SupplierOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* Action Buttons */}
       {showActions && (
         <div className="flex space-x-3">
-          <button
-            onClick={() => handleAcceptOrder(order.id)}
-            className="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors duration-200 flex items-center justify-center space-x-2"
-          >
-            <CheckCircle size={16} />
-            <span>Accept</span>
+          <button onClick={() => handleAcceptOrder(order.id)}
+            className="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 flex items-center justify-center space-x-2">
+            <CheckCircle size={16} /><span>Accept</span>
           </button>
-          <button
-            onClick={() => handleRejectOrder(order.id)}
-            className="flex-1 bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 transition-colors duration-200 flex items-center justify-center space-x-2"
-          >
-            <X size={16} />
-            <span>Reject</span>
+          <button onClick={() => handleRejectOrder(order.id)}
+            className="flex-1 bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 flex items-center justify-center space-x-2">
+            <X size={16} /><span>Reject</span>
           </button>
         </div>
       )}
 
       {showDelivered && (
-        <button
-          onClick={() => handleMarkDelivered(order.id)}
-          className="w-full btn-primary flex items-center justify-center space-x-2"
-        >
-          <CheckCircle size={16} />
-          <span>Mark as Delivered</span>
+        <button onClick={() => handleMarkDelivered(order.id)}
+          className="w-full btn-primary flex items-center justify-center space-x-2">
+          <CheckCircle size={16} /><span>Mark as Delivered</span>
         </button>
       )}
     </div>
@@ -128,13 +124,10 @@ const SupplierOrders: React.FC = () => {
       <div className="glass-card p-1">
         <div className="flex space-x-1">
           {['new', 'processing', 'completed'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
+            <button key={tab} onClick={() => setActiveTab(tab as any)}
               className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
                 activeTab === tab ? 'bg-primary-purple text-white' : 'text-text-gray hover:text-text-dark'
-              }`}
-            >
+              }`}>
               {tab === 'new' && `New Orders (${newOrders.length})`}
               {tab === 'processing' && `Processing (${processingOrders.length})`}
               {tab === 'completed' && `Completed (${completedOrders.length})`}
@@ -146,40 +139,30 @@ const SupplierOrders: React.FC = () => {
       {/* Orders Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {activeTab === 'new' && (
-          newOrders.length > 0 ? newOrders.map(order => (
-            <OrderCard key={order.id} order={order} showActions />
-          )) : (
-            <div className="col-span-full text-center py-12">
-              <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
-              <p className="text-text-gray">No new orders to process</p>
-            </div>
-          )
+          newOrders.length > 0 ? newOrders.map(order => <OrderCard key={order.id} order={order} showActions />) :
+          <EmptyState icon={<CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />} text="No new orders to process" />
         )}
 
         {activeTab === 'processing' && (
-          processingOrders.length > 0 ? processingOrders.map(order => (
-            <OrderCard key={order.id} order={order} showDelivered />
-          )) : (
-            <div className="col-span-full text-center py-12">
-              <Truck className="h-12 w-12 text-text-gray mx-auto mb-4" />
-              <p className="text-text-gray">No orders being processed</p>
-            </div>
-          )
+          processingOrders.length > 0 ? processingOrders.map(order => <OrderCard key={order.id} order={order} showDelivered />) :
+          <EmptyState icon={<Truck className="h-12 w-12 text-text-gray mx-auto mb-4" />} text="No orders being processed" />
         )}
 
         {activeTab === 'completed' && (
-          completedOrders.length > 0 ? completedOrders.map(order => (
-            <OrderCard key={order.id} order={order} />
-          )) : (
-            <div className="col-span-full text-center py-12">
-              <Package className="h-12 w-12 text-text-gray mx-auto mb-4" />
-              <p className="text-text-gray">No completed orders</p>
-            </div>
-          )
+          completedOrders.length > 0 ? completedOrders.map(order => <OrderCard key={order.id} order={order} />) :
+          <EmptyState icon={<Package className="h-12 w-12 text-text-gray mx-auto mb-4" />} text="No completed orders" />
         )}
       </div>
     </div>
   );
 };
+
+// ✅ Empty State Component
+const EmptyState = ({ icon, text }: { icon: JSX.Element; text: string }) => (
+  <div className="col-span-full text-center py-12">
+    {icon}
+    <p className="text-text-gray">{text}</p>
+  </div>
+);
 
 export default SupplierOrders;

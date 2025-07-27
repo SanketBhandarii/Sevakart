@@ -21,7 +21,7 @@ export interface Product {
   price: number;
   unit: string;
   category: string;
-  supplier: string;
+  supplier: string; // stores supplierId
   stock: number;
   image?: string;
 }
@@ -65,9 +65,7 @@ interface AppContextType {
   clearCart: () => Promise<void>;
 
   orders: Order[];
-  addOrder: (
-    order: Omit<Order, "id" | "date" | "vendor">
-  ) => Promise<void>;
+  addOrder: (order: Omit<Order, "id" | "date" | "vendor">) => Promise<void>;
   updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
   reorder: (order: Order) => Promise<void>;
@@ -153,7 +151,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await deleteDoc(doc(db, "Products", id));
   };
 
-  // ========================= CART (Firestore Only) =========================
+  // ========================= CART (with supplierId) =========================
   const getCart = async (vendorId?: string) => {
     if (!vendorId) return [];
     const q = query(cartsRef, where("vendorId", "==", vendorId));
@@ -189,7 +187,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const exists = prev.find((i) => i.id === product.id);
       const updated = exists
         ? prev.map((i) => (i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i))
-        : [...prev, { ...product, quantity }];
+        : [...prev, { ...product, quantity, supplier: product.supplier }]; // ✅ supplier stored
       if (vendorUid) saveCart(vendorUid, updated);
       return updated;
     });
@@ -216,7 +214,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await clearCartDB(vendorUid);
   };
 
-  // ========================= ORDERS =========================
+  // ========================= ORDERS (with supplierId) =========================
   useEffect(() => {
     const unsub = onSnapshot(ordersRef, (snapshot) => {
       setOrders(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Order)));
@@ -224,33 +222,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsub();
   }, []);
 
-  const reorder = async (order: Order): Promise<void> => {
-    const mappedItems: CartItem[] = order.items.map((item) => ({
-      id: Math.random().toString(36).slice(2),
-      name: item.name,
-      price: item.price,
-      unit: "unit",
-      category: "Reordered",
-      supplier: "Previous Supplier",
-      stock: 100,
-      quantity: item.qty,
-    }));
-    setCart(mappedItems);
+  const addOrder = async (order: Omit<Order, "id" | "date" | "vendor">): Promise<void> => {
+    // ✅ Attach supplierId from product list
+    const updatedItems = order.items.map((item) => {
+      const prod = products.find((p) => p.name === item.name);
+      return { ...item, supplierId: prod?.supplier || "" };
+    });
+
     await addDoc(ordersRef, {
-      vendor: vendorUid || order.vendor,
-      items: order.items,
+      vendor: vendorUid,
+      items: updatedItems,
       total: order.total,
-      status: "ordered",
+      status: order.status,
       date: serverTimestamp(),
     });
   };
 
-  const addOrder = async (order: Omit<Order, "id" | "date" | "vendor">): Promise<void> => {
+  const reorder = async (order: Order): Promise<void> => {
+    const updatedItems = order.items.map((item) => {
+      const prod = products.find((p) => p.name === item.name);
+      return { ...item, supplierId: prod?.supplier || "" };
+    });
+
+    setCart(
+      updatedItems.map((i) => ({
+        id: Math.random().toString(36).slice(2),
+        name: i.name,
+        price: i.price,
+        unit: "unit",
+        category: "Reordered",
+        supplier: i.supplierId || "",
+        stock: 100,
+        quantity: i.qty,
+      }))
+    );
+
     await addDoc(ordersRef, {
-      vendor: vendorUid,
-      items: order.items,
+      vendor: vendorUid || order.vendor,
+      items: updatedItems,
       total: order.total,
-      status: order.status,
+      status: "ordered",
       date: serverTimestamp(),
     });
   };
