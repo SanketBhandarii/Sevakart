@@ -57,12 +57,12 @@ const Login: React.FC = () => {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="flex justify-center">
-            <div className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center space-x-2">
               <Store className="h-12 w-12 text-primary-purple" />
               <span className="text-3xl font-bold text-text-dark">
                 SevaKart
               </span>
-            </div>
+            </Link>
           </div>
           <h2 className="mt-6 text-3xl font-bold text-text-dark">
             Welcome back

@@ -6,6 +6,9 @@ import { AppProvider } from './contexts/AppContext';
 import Layout from './components/Layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// Home Pages
+import Home from './components/Layout/Home'
+
 // Auth Pages
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
@@ -33,6 +36,7 @@ function App() {
           <Layout>
             <Routes>
               {/* Public Routes */}
+              <Route path='/' element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               
