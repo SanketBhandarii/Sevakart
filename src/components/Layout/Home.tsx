@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   ShoppingCart,
@@ -44,9 +44,19 @@ export default function LandingPage() {
     },
   ]
 
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    // Trigger fade-in after mount
+    const timeout = setTimeout(() => setIsVisible(true), 10)
+    return () => clearTimeout(timeout)
+  }, [])
+
 
   return (
-    <div id="home" className="flex flex-col min-h-screen">
+    <div id="home" className={`flex flex-col min-h-screen transition-opacity duration-700 ease-out ${
+      isVisible ? "opacity-100" : "opacity-0"
+    }`}>
       {/* Header */}
       <header className="px-4 lg:px-6 h-20 flex items-center border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
         <Link to="/" className="flex items-center space-x-2">
@@ -120,7 +130,7 @@ export default function LandingPage() {
               {/* Left Content */}
               <div className="space-y-6">
                 <div className="inline-block rounded-full bg-green-100 text-green-800 px-3 py-1 text-sm font-medium">
-                  🚀 Trusted by 10,000+ businesses
+                  🚀 We are improving our product!
                 </div>
                 <h1 className="text-4xl md:text-5xl font-extrabold leading-tight tracking-tight">
                   Connect Vendors with <br /> Quality Suppliers
