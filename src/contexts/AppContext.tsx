@@ -1,18 +1,18 @@
-  import React, { createContext, useContext, useState, useEffect } from "react";
-  import { auth, db } from "../utils/firebase";
-  import {
-    collection,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    doc,
-    onSnapshot,
-    serverTimestamp,
-    setDoc,
-    getDocs,
-    query,
-    where,
-  } from "firebase/firestore";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { auth, db } from "../utils/firebase";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
 
 // ========================= Interfaces =========================
 export interface Product {
@@ -26,9 +26,9 @@ export interface Product {
   image?: string;
 }
 
-  export interface CartItem extends Product {
-    quantity: number;
-  }
+export interface CartItem extends Product {
+  quantity: number;
+}
 
 export interface Order {
   id: string;
@@ -39,30 +39,30 @@ export interface Order {
   date: any;
 }
 
-  export interface InventoryItem {
-    id: string;
-    name: string;
-    currentStock: number;
-    unit: string;
-    status: "good" | "low" | "critical";
-  }
+export interface InventoryItem {
+  id: string;
+  name: string;
+  currentStock: number;
+  unit: string;
+  status: "good" | "low" | "critical";
+}
 
-  interface AppContextType {
-    products: Product[];
-    categories: string[];
-    filteredProducts: Product[];
-    searchProducts: (query: string) => void;
-    filterByCategory: (category: string) => void;
-    addProduct: (product: Omit<Product, "id">) => Promise<void>;
-    updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
-    deleteProduct: (id: string) => Promise<void>;
+interface AppContextType {
+  products: Product[];
+  categories: string[];
+  filteredProducts: Product[];
+  searchProducts: (query: string) => void;
+  filterByCategory: (category: string) => void;
+  addProduct: (product: Omit<Product, "id">) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
 
-    cart: CartItem[];
-    cartTotal: number;
-    addToCart: (product: Product, quantity?: number) => void;
-    removeFromCart: (productId: string) => void;
-    updateCartQuantity: (productId: string, quantity: number) => void;
-    clearCart: () => Promise<void>;
+  cart: CartItem[];
+  cartTotal: number;
+  addToCart: (product: Product, quantity?: number) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => Promise<void>;
 
   orders: Order[];
   addOrder: (
@@ -78,13 +78,13 @@ export interface Order {
   deleteInventoryItem: (id: string) => Promise<void>;
 }
 
-  // ========================= Context =========================
-  const AppContext = createContext<AppContextType | undefined>(undefined);
-  export const useApp = () => {
-    const context = useContext(AppContext);
-    if (!context) throw new Error("useApp must be used within AppProvider");
-    return context;
-  };
+// ========================= Context =========================
+const AppContext = createContext<AppContextType | undefined>(undefined);
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) throw new Error("useApp must be used within AppProvider");
+  return context;
+};
 
 // ========================= Provider =========================
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -95,14 +95,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
 
-    // Firestore References
-    const productsRef = collection(db, "Products");
-    const ordersRef = collection(db, "Order");
-    const categoryRef = collection(db, "Category");
-    const inventoryRef = collection(db, "Inventory");
-    const cartsRef = collection(db, "Cart");
+  // Firestore References
+  const productsRef = collection(db, "Products");
+  const ordersRef = collection(db, "Order");
+  const categoryRef = collection(db, "Category");
+  const inventoryRef = collection(db, "Inventory");
+  const cartsRef = collection(db, "Cart");
 
-    const vendorUid = auth.currentUser?.uid;
+  const vendorUid = auth.currentUser?.uid;
 
   // ========================= CATEGORIES (Realtime) =========================
   useEffect(() => {
