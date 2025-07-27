@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useApp, Product } from "../../contexts/AppContext";
+import { useAuth } from "../../contexts/AuthContext";
 import { Search, ShoppingCart, Plus, Minus, X } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -18,9 +19,33 @@ const VendorShop: React.FC = () => {
     categories,
   } = useApp();
 
+  const { getUserName } = useAuth(); // ✅ Import from AuthContext
+  const [supplierNames, setSupplierNames] = useState<Record<string, string>>({});
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // ✅ Fetch supplier names for displayed products
+  useEffect(() => {
+    const fetchSupplierNames = async () => {
+      const uniqueSupplierIds = Array.from(
+        new Set(filteredProducts.map((p) => p.supplier))
+      );
+
+      for (const supplierId of uniqueSupplierIds) {
+        if (supplierId && !supplierNames[supplierId]) {
+          const name = await getUserName(supplierId);
+          setSupplierNames((prev) => ({
+            ...prev,
+            [supplierId]: name || supplierId,
+          }));
+        }
+      }
+    };
+
+    if (filteredProducts.length > 0) fetchSupplierNames();
+  }, [filteredProducts, getUserName, supplierNames]);
 
   // ✅ Search Handler
   const handleSearch = (query: string) => {
@@ -46,7 +71,7 @@ const VendorShop: React.FC = () => {
     toast.success(`${product.name} added to cart!`);
   };
 
-  // ✅ Checkout → Places order using new format (no supplier field at root)
+  // ✅ Checkout → Uses supplierId in items
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Your cart is empty");
@@ -58,7 +83,7 @@ const VendorShop: React.FC = () => {
         name: item.name,
         qty: item.quantity,
         price: item.price,
-        supplierId: (item as any).supplierId || "",
+        supplierId: (item as any).supplier || "", // still stores supplierId internally
       })),
       total: cartTotal,
       status: "ordered" as const,
@@ -66,7 +91,7 @@ const VendorShop: React.FC = () => {
 
     try {
       await addOrder(newOrder);
-      await clearCart(); // ✅ Clears Firestore cart
+      await clearCart();
       setIsCartOpen(false);
       toast.success("Order placed successfully!");
     } catch (error) {
@@ -167,7 +192,11 @@ const VendorShop: React.FC = () => {
 
                 <div className="space-y-2">
                   <h3 className="font-semibold text-text-dark">{product.name}</h3>
-                  <p className="text-sm text-text-gray">{product.supplier}</p>
+
+                  {/* ✅ Show Supplier Name */}
+                  <p className="text-sm text-text-gray">
+                    {supplierNames[product.supplier] || "Loading supplier..."}
+                  </p>
 
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-primary-purple">

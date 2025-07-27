@@ -12,33 +12,16 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { auth } from "@/utils/firebase";
+import toast from "react-hot-toast";
 
 const SupplierDashboard: React.FC = () => {
-  const { orders, products } = useApp();
+  const { orders, products, updateOrderStatus } = useApp(); 
   const { currentUser, getUserName } = useAuth();
 
   const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
-
-  // ✅ Calculate stats
-  const todayOrders = orders.filter((order) => {
-    const today = new Date().toISOString().split("T")[0];
-    return order.date === today;
-  });
-
-  const weekSales = orders
-    .filter((order) => {
-      const orderDate = new Date(order.date);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return orderDate >= weekAgo;
-    })
-    .reduce((total, order) => total + order.total, 0);
-
-  const totalProducts = products.length;
-
   const supplierUid = auth.currentUser?.uid;
 
-  // ✅ Filter orders of this supplier
+  // ✅ Filter orders belonging to this supplier
   const supplierOrders = useMemo(() => {
     if (!supplierUid) return [];
     return orders.filter((order) =>
@@ -46,6 +29,28 @@ const SupplierDashboard: React.FC = () => {
     );
   }, [orders, supplierUid]);
 
+  // ✅ Today's Orders (only for this supplier)
+  const todayOrders = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return supplierOrders.filter((order) => {
+      const orderDate = order.date?.toDate ? order.date.toDate() : new Date(order.date);
+      return orderDate.toISOString().split("T")[0] === today;
+    });
+  }, [supplierOrders]);
+
+  // ✅ This Week Sales (only for this supplier)
+  const weekSales = useMemo(() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return supplierOrders
+      .filter((order) => {
+        const orderDate = order.date?.toDate ? order.date.toDate() : new Date(order.date);
+        return orderDate >= weekAgo;
+      })
+      .reduce((total, order) => total + order.total, 0);
+  }, [supplierOrders]);
+
+  // ✅ Customers (derived from supplierOrders)
   interface Customer {
     id: string;
     name: string;
@@ -62,7 +67,6 @@ const SupplierDashboard: React.FC = () => {
 
   const customers: Customer[] = useMemo(() => {
     const map = new Map<string, Customer>();
-
     supplierOrders.forEach((order) => {
       const vendorId = order.vendor;
       if (!vendorId) return;
@@ -70,7 +74,7 @@ const SupplierDashboard: React.FC = () => {
       if (!map.has(vendorId)) {
         map.set(vendorId, {
           id: vendorId,
-          name: vendorNames[vendorId] || vendorId, // temporary until name is fetched
+          name: vendorNames[vendorId] || vendorId,
           totalOrders: 0,
           totalBusiness: 0,
           lastOrderDate: new Date(0),
@@ -82,9 +86,7 @@ const SupplierDashboard: React.FC = () => {
       vendorData.totalOrders += 1;
       vendorData.totalBusiness += order.total;
 
-      const orderDate = order.date?.toDate
-        ? order.date.toDate()
-        : new Date(order.date);
+      const orderDate = order.date?.toDate ? order.date.toDate() : new Date(order.date);
       if (orderDate > vendorData.lastOrderDate) {
         vendorData.lastOrderDate = orderDate;
       }
@@ -102,7 +104,11 @@ const SupplierDashboard: React.FC = () => {
     );
   }, [supplierOrders, vendorNames]);
 
-  const newOrders = orders.filter((order) => order.status === "ordered");
+  // ✅ Recent Orders (only supplier orders with status "ordered")
+  const newOrders = useMemo(() => {
+    if (!supplierUid) return [];
+    return supplierOrders.filter((order) => order.status === "ordered");
+  }, [supplierOrders, supplierUid]);
 
   // ✅ Fetch vendor names for recent orders
   useEffect(() => {
@@ -120,6 +126,19 @@ const SupplierDashboard: React.FC = () => {
     };
     if (newOrders.length) fetchVendorNames();
   }, [newOrders, getUserName, vendorNames]);
+
+  // ✅ Process Order Handler
+  const handleProcessOrder = async (orderId: string) => {
+    try {
+      await updateOrderStatus(orderId, "shipped");
+      toast.success("Order marked as shipped!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process order");
+    }
+  };
+
+  const totalProducts = products.length;
 
   return (
     <div className="space-y-6">
@@ -139,9 +158,7 @@ const SupplierDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">
-                Today's Orders
-              </p>
+              <p className="text-sm font-medium text-text-gray">Today's Orders</p>
               <p className="text-2xl font-bold text-text-dark">
                 {todayOrders.length} New Orders
               </p>
@@ -163,12 +180,8 @@ const SupplierDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">
-                This Week Sales
-              </p>
-              <p className="text-2xl font-bold text-text-dark">
-                ₹{weekSales.toLocaleString()}
-              </p>
+              <p className="text-sm font-medium text-text-gray">This Week Sales</p>
+              <p className="text-2xl font-bold text-text-dark">₹{weekSales.toLocaleString()}</p>
               <div className="flex items-center space-x-1 mt-1">
                 <TrendingUp className="h-4 w-4 text-success" />
                 <p className="text-sm text-success">+22% from last week</p>
@@ -184,12 +197,8 @@ const SupplierDashboard: React.FC = () => {
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-text-gray">
-                Products Listed
-              </p>
-              <p className="text-2xl font-bold text-text-dark">
-                {totalProducts} Products
-              </p>
+              <p className="text-sm font-medium text-text-gray">Products Listed</p>
+              <p className="text-2xl font-bold text-text-dark">{totalProducts} Products</p>
             </div>
             <div className="p-3 bg-primary-blue/10 rounded-lg">
               <Package className="h-6 w-6 text-primary-blue" />
@@ -204,14 +213,12 @@ const SupplierDashboard: React.FC = () => {
           </Link>
         </div>
 
-        {/* Customers (Unique Count) */}
+        {/* Customers */}
         <div className="glass-card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-text-gray">Customers</p>
-              <p className="text-2xl font-bold text-text-dark">
-                {customers.length} Vendors
-              </p>
+              <p className="text-2xl font-bold text-text-dark">{customers.length} Vendors</p>
             </div>
             <div className="p-3 bg-warning/10 rounded-lg">
               <Users className="h-6 w-6 text-warning" />
@@ -227,12 +234,10 @@ const SupplierDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* ✅ Recent Orders with Vendor Name */}
+      {/* ✅ Recent Orders */}
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-text-dark">
-            Recent Orders
-          </h3>
+          <h3 className="text-lg font-semibold text-text-dark">Recent Orders</h3>
           <Link
             to="/supplier/orders"
             className="text-primary-purple hover:text-primary-purple/80 text-sm font-medium"
@@ -253,18 +258,11 @@ const SupplierDashboard: React.FC = () => {
                     {vendorNames[order.vendor] || "Loading..."}
                   </h4>
                   <span className="text-sm text-text-gray">-</span>
-                  <span className="text-sm text-text-gray break-all">
-                    {order.id}
-                  </span>
+                  <span className="text-sm text-text-gray break-all">{order.id}</span>
                 </div>
                 <p className="text-sm text-text-gray mt-1">
                   {order.items
-                    .map(
-                      (item) =>
-                        `${item.name} ${item.qty}${
-                          item.name.includes("Oil") ? "L" : "kg"
-                        }`
-                    )
+                    .map((item) => `${item.name} ${item.qty}${item.name.includes("Oil") ? "L" : "kg"}`)
                     .join(", ")}
                 </p>
               </div>
@@ -272,11 +270,15 @@ const SupplierDashboard: React.FC = () => {
               <div className="text-right sm:mr-4">
                 <p className="font-semibold text-text-dark">₹{order.total}</p>
                 <p className="text-sm text-text-gray">
-                  {new Date(order.date).toLocaleDateString()}
+                  {order.date?.toDate ? order.date.toDate().toLocaleDateString() : new Date(order.date).toLocaleDateString()}
                 </p>
               </div>
 
-              <button className="btn-primary text-sm px-4 py-2 w-full sm:w-auto">
+              {/* ✅ Process Button */}
+              <button
+                className="btn-primary text-sm px-4 py-2 w-full sm:w-auto"
+                onClick={() => handleProcessOrder(order.id)}
+              >
                 Process
               </button>
             </div>
