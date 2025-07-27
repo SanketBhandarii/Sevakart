@@ -169,8 +169,8 @@ const SupplierProfile: React.FC = () => {
               <p className="text-sm text-text-gray">Total Orders</p>
             </div>
             <div className="text-center p-4 bg-success/10 rounded-lg">
-              <p className="text-2xl font-bold text-success">₹45,200</p>
-              <p className="text-sm text-text-gray">This Month</p>
+              <p className="text-2xl font-bold text-success">45k</p>
+              <p className="t ext-sm text-text-gray">This Month</p>
             </div>
             <div className="text-center p-4 bg-primary-blue/10 rounded-lg">
               <p className="text-2xl font-bold text-primary-blue">8</p>

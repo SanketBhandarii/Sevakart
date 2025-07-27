@@ -227,39 +227,46 @@ const SupplierProducts: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Product Management</h1>
-        <button onClick={() => setIsAddModalOpen(true)} className="btn-primary flex items-center space-x-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold">Product Management</h1>
+        <button 
+          onClick={() => setIsAddModalOpen(true)} 
+          className="btn-primary flex items-center space-x-2 w-full sm:w-auto justify-center"
+        >
           <Plus size={20} /> <span>Add Product</span>
         </button>
       </div>
 
-      {/* Product Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Product Grid - Responsive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
 
         {/* ➕ Add Product Card */}
         <div
           onClick={() => setIsAddModalOpen(true)}
-          className="glass-card p-4 flex flex-col items-center justify-center cursor-pointer hover:shadow-lg transition border-2 border-dashed border-purple-400 text-purple-600"
+          className="glass-card p-4 sm:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-lg transition border-2 border-dashed border-purple-400 text-purple-600 min-h-[200px] sm:min-h-[250px]"
         >
-          <Plus size={40} className="mb-2" />
-          <p className="font-semibold">Add New Product</p>
+          <Plus size={32} className="sm:size-10 mb-2" />
+          <p className="font-semibold text-sm sm:text-base text-center">Add New Product</p>
         </div>
 
         {/* Supplier Products */}
         {supplierProducts.map((product) => (
-          <div key={product.id} className="glass-card p-4 hover:shadow-lg transition">
-            <div className="aspect-square bg-gray-200 rounded-lg mb-4 flex items-center justify-center">
-              <span className="text-4xl">📦</span>
+          <div key={product.id} className="glass-card p-4 sm:p-6 hover:shadow-lg transition">
+            {/* Product Image/Icon */}
+            <div className="aspect-square bg-gray-200 rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
+              <span className="text-2xl sm:text-4xl">📦</span>
             </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold">{product.name}</h3>
-              <p className="text-sm text-gray-500">{product.category}</p>
+            
+            <div className="space-y-2 sm:space-y-3">
+              {/* Product Name */}
+              <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{product.name}</h3>
+              <p className="text-xs sm:text-sm text-gray-500">{product.category}</p>
 
+              {/* Price & Stock */}
               <div className="flex justify-between items-center">
-                <span className="text-lg font-bold text-purple-600">
+                <span className="text-base sm:text-lg font-bold text-purple-600">
                   ₹{product.price}/{product.unit}
                 </span>
                 <span
@@ -271,11 +278,18 @@ const SupplierProducts: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex space-x-2 pt-2">
-                <button onClick={() => openEditModal(product)} className="flex-1 btn-secondary text-sm flex items-center justify-center space-x-1">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 pt-2 sm:pt-3">
+                <button 
+                  onClick={() => openEditModal(product)} 
+                  className="flex-1 btn-secondary text-xs sm:text-sm flex items-center justify-center space-x-1 py-2"
+                >
                   <Edit2 size={14} /> <span>Edit</span>
                 </button>
-                <button onClick={() => handleDeleteProduct(product.id, product.name)} className="flex-1 bg-red-600 text-white rounded-lg px-3 py-2 hover:bg-red-700 text-sm flex items-center justify-center space-x-1">
+                <button 
+                  onClick={() => handleDeleteProduct(product.id, product.name)} 
+                  className="flex-1 bg-red-600 text-white rounded-lg px-3 py-2 hover:bg-red-700 text-xs sm:text-sm flex items-center justify-center space-x-1"
+                >
                   <Trash2 size={14} /> <span>Delete</span>
                 </button>
               </div>
@@ -284,15 +298,20 @@ const SupplierProducts: React.FC = () => {
         ))}
       </div>
 
+      {/* Empty State */}
       {supplierProducts.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No products added yet</p>
+        <div className="text-center py-8 sm:py-12">
+          <Package className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-sm sm:text-base">No products added yet</p>
         </div>
       )}
 
       {/* Modals */}
-      <Modal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); resetForm(); }} title="Add Product">
+      <Modal 
+        isOpen={isAddModalOpen} 
+        onClose={() => { setIsAddModalOpen(false); resetForm(); }} 
+        title="Add Product"
+      >
         <ProductForm 
           onSubmit={handleAddProduct} 
           title="Add Product"
@@ -306,7 +325,11 @@ const SupplierProducts: React.FC = () => {
         />
       </Modal>
 
-      <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setEditingProduct(null); resetForm(); }} title="Edit Product">
+      <Modal 
+        isOpen={isEditModalOpen} 
+        onClose={() => { setIsEditModalOpen(false); setEditingProduct(null); resetForm(); }} 
+        title="Edit Product"
+      >
         <ProductForm 
           onSubmit={handleEditProduct} 
           title="Update Product"

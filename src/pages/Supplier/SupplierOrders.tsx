@@ -7,18 +7,16 @@ import { auth } from '../../utils/firebase';
 
 const SupplierOrders: React.FC = () => {
   const { orders, updateOrderStatus, deleteOrder } = useApp();
-  const { getUserName } = useAuth(); // ✅ Using helper from AuthContext
+  const { getUserName } = useAuth();
   const [activeTab, setActiveTab] = useState<'new' | 'processing' | 'completed'>('new');
   const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
 
   const supplierUid = auth.currentUser?.uid;
 
-  // ✅ Filter orders that belong to this supplier
   const supplierOrders = orders.filter(order =>
     order.items.some((item: any) => item.supplierId === supplierUid)
   );
 
-  // ✅ Fetch vendor name using AuthContext helper
   const fetchVendorName = async (vendorUid: string) => {
     if (vendorNames[vendorUid]) {
       console.log(`[VendorName] Cached: ${vendorUid} -> ${vendorNames[vendorUid]}`);
@@ -30,19 +28,16 @@ const SupplierOrders: React.FC = () => {
     setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
   };
 
-  // ✅ Fetch names for all vendors in supplier orders
   useEffect(() => {
     supplierOrders.forEach(order => {
       if (order.vendor) fetchVendorName(order.vendor);
     });
   }, [supplierOrders]);
 
-  // ✅ Categorize orders by status
   const newOrders = supplierOrders.filter(order => order.status === 'ordered');
   const processingOrders = supplierOrders.filter(order => order.status === 'shipped');
   const completedOrders = supplierOrders.filter(order => order.status === 'delivered');
 
-  // ✅ Handlers
   const handleAcceptOrder = async (orderId: string) => {
     await updateOrderStatus(orderId, 'shipped');
     toast.success('Order accepted and marked as shipped!');
@@ -58,7 +53,6 @@ const SupplierOrders: React.FC = () => {
     toast.success('Order marked as delivered!');
   };
 
-  // ✅ Status Icons
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ordered': return <Clock className="h-4 w-4" />;
@@ -68,31 +62,30 @@ const SupplierOrders: React.FC = () => {
     }
   };
 
-  // ✅ Order Card Component
   const OrderCard = ({ order, showActions = false, showDelivered = false }: { 
     order: any; showActions?: boolean; showDelivered?: boolean;
   }) => {
     const vendorName = vendorNames[order.vendor] || 'Loading...';
 
     return (
-      <div className="glass-card p-6">
+      <div className="glass-card p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-text-dark">Order #{order.id}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-text-dark truncate">Order #{order.id}</h3>
             <p className="text-sm text-text-gray">
               {order.date ? new Date(order.date).toLocaleDateString() : 'No Date'}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 ml-2">
             {getStatusIcon(order.status)}
-            <span className="text-sm font-medium capitalize text-text-gray">{order.status}</span>
+            <span className="text-sm font-medium capitalize text-text-gray hidden sm:inline">{order.status}</span>
           </div>
         </div>
 
         <div className="space-y-3 mb-4">
           <div className="flex justify-between">
             <span className="text-text-gray">Vendor:</span>
-            <span className="font-medium text-text-dark">{vendorName}</span>
+            <span className="font-medium text-text-dark truncate ml-2">{vendorName}</span>
           </div>
 
           <div>
@@ -102,8 +95,8 @@ const SupplierOrders: React.FC = () => {
                 .filter((item: any) => item.supplierId === supplierUid)
                 .map((item: any, index: number) => (
                   <div key={index} className="flex justify-between text-sm">
-                    <span className="text-text-dark">{item.name} × {item.qty}</span>
-                    <span className="font-medium text-text-dark">₹{item.price * item.qty}</span>
+                    <span className="text-text-dark truncate">{item.name} × {item.qty}</span>
+                    <span className="font-medium text-text-dark ml-2">₹{item.price * item.qty}</span>
                   </div>
                 ))}
             </div>
@@ -116,7 +109,7 @@ const SupplierOrders: React.FC = () => {
         </div>
 
         {showActions && (
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button onClick={() => handleAcceptOrder(order.id)}
               className="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 flex items-center justify-center space-x-2">
               <CheckCircle size={16} /><span>Accept</span>
@@ -139,30 +132,37 @@ const SupplierOrders: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-0">
       <div>
         <h1 className="text-2xl font-bold text-text-dark">Order Management</h1>
         <p className="text-text-gray">Process and track your supplier orders</p>
       </div>
 
-      {/* ✅ Tabs */}
+      {/* ✅ Tabs - Made responsive */}
       <div className="glass-card p-1">
         <div className="flex space-x-1">
           {['new', 'processing', 'completed'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab as any)}
-              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+              className={`flex-1 px-2 sm:px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
                 activeTab === tab ? 'bg-primary-purple text-white' : 'text-text-gray hover:text-text-dark'
               }`}>
-              {tab === 'new' && `New Orders (${newOrders.length})`}
-              {tab === 'processing' && `Processing (${processingOrders.length})`}
-              {tab === 'completed' && `Completed (${completedOrders.length})`}
+              <span className="sm:hidden text-xs">
+                {tab === 'new' && `New (${newOrders.length})`}
+                {tab === 'processing' && `Process (${processingOrders.length})`}
+                {tab === 'completed' && `Done (${completedOrders.length})`}
+              </span>
+              <span className="hidden sm:inline">
+                {tab === 'new' && `New Orders (${newOrders.length})`}
+                {tab === 'processing' && `Processing (${processingOrders.length})`}
+                {tab === 'completed' && `Completed (${completedOrders.length})`}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* ✅ Orders Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* ✅ Orders Grid - Made responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         {activeTab === 'new' && (
           newOrders.length > 0 ? newOrders.map(order => <OrderCard key={order.id} order={order} showActions />) :
           <EmptyState icon={<CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />} text="No new orders to process" />
@@ -182,7 +182,6 @@ const SupplierOrders: React.FC = () => {
   );
 };
 
-// ✅ Empty State Component
 const EmptyState = ({ icon, text }: { icon: JSX.Element; text: string }) => (
   <div className="col-span-full text-center py-12">
     {icon}
