@@ -47,56 +47,60 @@ const SupplierDashboard: React.FC = () => {
   }, [orders, supplierUid]);
 
   interface Customer {
-  id: string;
-  name: string;
-  totalOrders: number;
-  totalBusiness: number;
-  lastOrderDate: Date;
-  orders: {
     id: string;
-    date: Date;
-    items: string;
-    amount: number;
-  }[];
-}
+    name: string;
+    totalOrders: number;
+    totalBusiness: number;
+    lastOrderDate: Date;
+    orders: {
+      id: string;
+      date: Date;
+      items: string;
+      amount: number;
+    }[];
+  }
 
-    const customers: Customer[] = useMemo(() => {
-      const map = new Map<string, Customer>();
-  
-      supplierOrders.forEach(order => {
-        const vendorId = order.vendor;
-        if (!vendorId) return;
-  
-        if (!map.has(vendorId)) {
-          map.set(vendorId, {
-            id: vendorId,
-            name: vendorNames[vendorId] || vendorId, // temporary until name is fetched
-            totalOrders: 0,
-            totalBusiness: 0,
-            lastOrderDate: new Date(0),
-            orders: [],
-          });
-        }
-  
-        const vendorData = map.get(vendorId)!;
-        vendorData.totalOrders += 1;
-        vendorData.totalBusiness += order.total;
-  
-        const orderDate = order.date?.toDate ? order.date.toDate() : new Date(order.date);
-        if (orderDate > vendorData.lastOrderDate) {
-          vendorData.lastOrderDate = orderDate;
-        }
-  
-        vendorData.orders.push({
-          id: order.id,
-          date: orderDate,
-          items: order.items.map(i => i.name).join(', '),
-          amount: order.total,
+  const customers: Customer[] = useMemo(() => {
+    const map = new Map<string, Customer>();
+
+    supplierOrders.forEach((order) => {
+      const vendorId = order.vendor;
+      if (!vendorId) return;
+
+      if (!map.has(vendorId)) {
+        map.set(vendorId, {
+          id: vendorId,
+          name: vendorNames[vendorId] || vendorId, // temporary until name is fetched
+          totalOrders: 0,
+          totalBusiness: 0,
+          lastOrderDate: new Date(0),
+          orders: [],
         });
+      }
+
+      const vendorData = map.get(vendorId)!;
+      vendorData.totalOrders += 1;
+      vendorData.totalBusiness += order.total;
+
+      const orderDate = order.date?.toDate
+        ? order.date.toDate()
+        : new Date(order.date);
+      if (orderDate > vendorData.lastOrderDate) {
+        vendorData.lastOrderDate = orderDate;
+      }
+
+      vendorData.orders.push({
+        id: order.id,
+        date: orderDate,
+        items: order.items.map((i) => i.name).join(", "),
+        amount: order.total,
       });
-  
-      return Array.from(map.values()).sort((a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime());
-    }, [supplierOrders, vendorNames]);
+    });
+
+    return Array.from(map.values()).sort(
+      (a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime()
+    );
+  }, [supplierOrders, vendorNames]);
 
   const newOrders = orders.filter((order) => order.status === "ordered");
 
@@ -241,15 +245,17 @@ const SupplierDashboard: React.FC = () => {
           {newOrders.slice(0, 3).map((order) => (
             <div
               key={order.id}
-              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
             >
               <div className="flex-1">
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <h4 className="font-medium text-text-dark">
                     {vendorNames[order.vendor] || "Loading..."}
                   </h4>
                   <span className="text-sm text-text-gray">-</span>
-                  <span className="text-sm text-text-gray">{order.id}</span>
+                  <span className="text-sm text-text-gray break-all">
+                    {order.id}
+                  </span>
                 </div>
                 <p className="text-sm text-text-gray mt-1">
                   {order.items
@@ -263,14 +269,16 @@ const SupplierDashboard: React.FC = () => {
                 </p>
               </div>
 
-              <div className="text-right mr-4">
+              <div className="text-right sm:mr-4">
                 <p className="font-semibold text-text-dark">₹{order.total}</p>
                 <p className="text-sm text-text-gray">
                   {new Date(order.date).toLocaleDateString()}
                 </p>
               </div>
 
-              <button className="btn-primary text-sm px-4 py-2">Process</button>
+              <button className="btn-primary text-sm px-4 py-2 w-full sm:w-auto">
+                Process
+              </button>
             </div>
           ))}
 

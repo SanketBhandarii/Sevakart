@@ -120,7 +120,7 @@
         </div>
 
         {/* Mobile Header */}
-        <div className="lg:hidden w-[80vw] ">
+        <div className="lg:hidden w-full">
           <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
