@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useApp } from "../../contexts/AppContext";
 import {
   Package,
@@ -34,16 +34,21 @@ const VendorInventory: React.FC = () => {
     status: "good" as "good" | "low" | "critical",
   });
 
-  const totalItems = inventory.length;
-  const lowStockItems = inventory.filter(
-    (item) => item.status === "low"
-  ).length;
-  const criticalStockItems = inventory.filter(
-    (item) => item.status === "critical"
-  ).length;
-  const totalValue = inventory.reduce((total, item) => {
-    const productPrice =
-      products.find((p) => p.name === item.name)?.price || 50;
+  // ✅ Get current vendor UID
+  const vendorUid = auth.currentUser?.uid;
+
+  // ✅ Filter inventory only for this vendor
+  const filteredInventory = useMemo(() => {
+    if (!vendorUid) return [];
+    return inventory.filter((item: any) => item.vendorId === vendorUid);
+  }, [inventory, vendorUid]);
+
+  // ✅ Calculate stats based on filtered inventory
+  const totalItems = filteredInventory.length;
+  const lowStockItems = filteredInventory.filter((item) => item.status === "low").length;
+  const criticalStockItems = filteredInventory.filter((item) => item.status === "critical").length;
+  const totalValue = filteredInventory.reduce((total, item) => {
+    const productPrice = products.find((p) => p.name === item.name)?.price || 50;
     return total + item.currentStock * productPrice;
   }, 0);
 
@@ -92,6 +97,7 @@ const VendorInventory: React.FC = () => {
         currentStock: newItem.currentStock,
         unit: newItem.unit,
         status,
+        vendorId: vendorUid || "currentVendor",
       });
       toast.success("Item added successfully!");
       setIsAddItemModalOpen(false);
@@ -109,53 +115,36 @@ const VendorInventory: React.FC = () => {
     setIsReorderModalOpen(true);
   };
 
-  /** ✅ Confirm Reorder (fetch existing order and update qty) */
+  /** ✅ Confirm Reorder (existing logic unchanged) */
   const confirmReorder = async () => {
     if (!selectedItem) return;
 
-    const vendorId = auth.currentUser?.uid || "currentVendor";
-    console.log(
-      "🔍 Reorder started for Vendor:",
-      vendorId,
-      "Product:",
-      selectedItem.name
-    );
-
+    const vendorId = vendorUid || "currentVendor";
     try {
       const ordersRef = collection(db, "Order");
       const q = query(ordersRef, where("vendor", "==", vendorId));
       const snapshot = await getDocs(q);
 
       if (snapshot.empty) {
-        console.warn("⚠️ No orders found for vendor. Creating a new order.");
         return createNewOrder(vendorId);
       }
 
-      console.log("📦 Found existing orders for vendor:", snapshot.docs);
-      // ✅ Filter manually for product match
       const matchingDoc = snapshot.docs.find((doc) =>
-        doc
-          .data()
-          .items?.some(
-            (i: any) =>
-              i.name?.toLowerCase() === selectedItem.name?.toLowerCase()
-          )
+        doc.data().items?.some(
+          (i: any) => i.name?.toLowerCase() === selectedItem.name?.toLowerCase()
+        )
       );
-      console.log("🔍 Matching Order Document:", matchingDoc?.id);
 
       if (!matchingDoc) {
-        console.warn(
-          "⚠️ No matching product found in vendor's orders. Creating a new order."
-        );
         return createNewOrder(vendorId);
       }
 
       const orderDoc = matchingDoc.data();
-      console.log("🟢 Found matching order:", orderDoc);
-      console.log("QTY",orderQty);
-      // ✅ Update the qty for selected product
+
       const updatedItems = orderDoc.items.map((i: any) =>
-        i.name.toLowerCase() === selectedItem.name.toLowerCase() ? { ...i, qty: orderQty } : i
+        i.name.toLowerCase() === selectedItem.name.toLowerCase()
+          ? { ...i, qty: orderQty }
+          : i
       );
 
       const newTotal = updatedItems.reduce(
@@ -170,8 +159,6 @@ const VendorInventory: React.FC = () => {
         total: newTotal,
         items: updatedItems,
       };
-
-      console.log("📦 Final Order Payload (Update):", orderPayload);
 
       await addOrder(orderPayload);
       filterByCategory("all");
@@ -192,7 +179,7 @@ const VendorInventory: React.FC = () => {
     }
     const fallbackPayload = {
       vendorId,
-      supplier: product.supplierId || "",
+      supplier: product.supplier || "",
       status: "ordered" as const,
       total: product.price * orderQty,
       items: [
@@ -200,11 +187,10 @@ const VendorInventory: React.FC = () => {
           name: product.name,
           qty: orderQty,
           price: product.price,
-          supplierId: product.supplierId || "",
+          supplierId: product.supplier || "",
         },
       ],
     };
-    console.log("📦 Creating new order with payload:", fallbackPayload);
     await addOrder(fallbackPayload);
     filterByCategory("all");
     toast.success(`${product.name} reordered (${orderQty} units)!`);
@@ -244,9 +230,7 @@ const VendorInventory: React.FC = () => {
         </div>
         <div className="glass-card p-6">
           <p>Total Value</p>
-          <p className="text-2xl font-bold text-success">
-            ₹{totalValue.toLocaleString()}
-          </p>
+          <p className="text-2xl font-bold text-success">₹{totalValue.toLocaleString()}</p>
         </div>
       </div>
 
@@ -266,30 +250,19 @@ const VendorInventory: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {inventory.map((item) => (
+              {filteredInventory.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">{item.name}</td>
+                  <td className="px-6 py-4">{item.currentStock} {item.unit}</td>
                   <td className="px-6 py-4">
-                    {item.currentStock} {item.unit}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div
-                      className={`inline-flex items-center px-3 py-1 rounded-full border ${getStatusColor(
-                        item.status
-                      )}`}
-                    >
+                    <div className={`inline-flex items-center px-3 py-1 rounded-full border ${getStatusColor(item.status)}`}>
                       {getStatusIcon(item.status)}
-                      <span className="ml-2 capitalize">
-                        {item.status} Stock
-                      </span>
+                      <span className="ml-2 capitalize">{item.status} Stock</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     {(item.status === "low" || item.status === "critical") && (
-                      <button
-                        onClick={() => openReorderModal(item)}
-                        className="btn-secondary flex items-center space-x-1 px-3 py-1 text-sm"
-                      >
+                      <button onClick={() => openReorderModal(item)} className="btn-secondary flex items-center space-x-1 px-3 py-1 text-sm">
                         <ShoppingCart size={14} />
                         <span>Reorder</span>
                       </button>
@@ -299,80 +272,37 @@ const VendorInventory: React.FC = () => {
               ))}
             </tbody>
           </table>
-          {inventory.length === 0 && (
+
+          {filteredInventory.length === 0 && (
             <div className="text-center py-12">
               <Package className="h-12 w-12 mx-auto mb-4" />
-              <p>No inventory items found</p>
+              <p>No inventory items found for this vendor</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Add Item Modal */}
-      <Modal
-        isOpen={isAddItemModalOpen}
-        onClose={() => setIsAddItemModalOpen(false)}
-        title="Add New Item"
-      >
+      <Modal isOpen={isAddItemModalOpen} onClose={() => setIsAddItemModalOpen(false)} title="Add New Item">
         <form onSubmit={handleAddItem} className="space-y-4">
-          <input
-            type="text"
-            value={newItem.name}
-            onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-            className="input-field"
-            placeholder="Item Name"
-            required
-          />
-          <input
-            type="number"
-            min="0"
-            value={newItem.currentStock}
-            onChange={(e) =>
-              setNewItem({
-                ...newItem,
-                currentStock: parseInt(e.target.value) || 0,
-              })
-            }
-            className="input-field"
-            placeholder="Quantity"
-            required
-          />
-          <select
-            value={newItem.unit}
-            onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-            className="input-field"
-          >
+          <input type="text" value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} className="input-field" placeholder="Item Name" required />
+          <input type="number" min="0" value={newItem.currentStock} onChange={(e) => setNewItem({ ...newItem, currentStock: parseInt(e.target.value) || 0 })} className="input-field" placeholder="Quantity" required />
+          <select value={newItem.unit} onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })} className="input-field">
             <option value="kg">kg</option>
             <option value="L">L</option>
             <option value="piece">piece</option>
             <option value="packet">packet</option>
           </select>
-          <button type="submit" className="btn-primary w-full">
-            Add Item
-          </button>
+          <button type="submit" className="btn-primary w-full">Add Item</button>
         </form>
       </Modal>
 
       {/* Reorder Modal */}
-      <Modal
-        isOpen={isReorderModalOpen}
-        onClose={() => setIsReorderModalOpen(false)}
-        title="Reorder Item"
-      >
+      <Modal isOpen={isReorderModalOpen} onClose={() => setIsReorderModalOpen(false)} title="Reorder Item">
         <div className="space-y-4">
-          <p>
-            Reordering: <strong>{selectedItem?.name}</strong>
-          </p>
-          <input
-            type="number"
-            min="1"
-            value={orderQty}
-            onChange={(e) => setOrderQty(Number(e.target.value))}
-            className="input-field"
-          />
-          <button onClick={confirmReorder} className="btn-primary w-full">
-            Confirm Reorder
-          </button>
+          <p>Reordering: <strong>{selectedItem?.name}</strong></p>
+          <input type="number" min="1" value={orderQty} onChange={(e) => setOrderQty(Number(e.target.value))} className="input-field" />
+          <button onClick={confirmReorder} className="btn-primary w-full">Confirm Reorder</button>
         </div>
       </Modal>
     </div>

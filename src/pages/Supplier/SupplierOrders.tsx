@@ -1,22 +1,43 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { CheckCircle, X, Truck, Package, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { auth } from '../../utils/firebase'; // ✅ Import auth to get currentUser
+import { auth } from '../../utils/firebase';
 
 const SupplierOrders: React.FC = () => {
   const { orders, updateOrderStatus, deleteOrder } = useApp();
+  const { getUserName } = useAuth(); // ✅ Using helper from AuthContext
   const [activeTab, setActiveTab] = useState<'new' | 'processing' | 'completed'>('new');
+  const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
 
-  // ✅ Get Current Supplier UID
   const supplierUid = auth.currentUser?.uid;
 
-  // ✅ Filter orders based on supplierId inside items[]
+  // ✅ Filter orders that belong to this supplier
   const supplierOrders = orders.filter(order =>
     order.items.some((item: any) => item.supplierId === supplierUid)
   );
 
-  // ✅ Categorize Filtered Orders
+  // ✅ Fetch vendor name using AuthContext helper
+  const fetchVendorName = async (vendorUid: string) => {
+    if (vendorNames[vendorUid]) {
+      console.log(`[VendorName] Cached: ${vendorUid} -> ${vendorNames[vendorUid]}`);
+      return;
+    }
+
+    console.log(`[VendorName] Fetching vendor name for UID: ${vendorUid}`);
+    const name = await getUserName(vendorUid);
+    setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
+  };
+
+  // ✅ Fetch names for all vendors in supplier orders
+  useEffect(() => {
+    supplierOrders.forEach(order => {
+      if (order.vendor) fetchVendorName(order.vendor);
+    });
+  }, [supplierOrders]);
+
+  // ✅ Categorize orders by status
   const newOrders = supplierOrders.filter(order => order.status === 'ordered');
   const processingOrders = supplierOrders.filter(order => order.status === 'shipped');
   const completedOrders = supplierOrders.filter(order => order.status === 'delivered');
@@ -37,7 +58,7 @@ const SupplierOrders: React.FC = () => {
     toast.success('Order marked as delivered!');
   };
 
-  // ✅ Status Icon
+  // ✅ Status Icons
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'ordered': return <Clock className="h-4 w-4" />;
@@ -47,71 +68,75 @@ const SupplierOrders: React.FC = () => {
     }
   };
 
-  // ✅ Reusable Order Card
+  // ✅ Order Card Component
   const OrderCard = ({ order, showActions = false, showDelivered = false }: { 
     order: any; showActions?: boolean; showDelivered?: boolean;
-  }) => (
-    <div className="glass-card p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="font-semibold text-text-dark">Order #{order.id}</h3>
-          <p className="text-sm text-text-gray">
-            {order.date ? new Date(order.date).toLocaleDateString() : 'No Date'}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          {getStatusIcon(order.status)}
-          <span className="text-sm font-medium capitalize text-text-gray">{order.status}</span>
-        </div>
-      </div>
+  }) => {
+    const vendorName = vendorNames[order.vendor] || 'Loading...';
 
-      <div className="space-y-3 mb-4">
-        <div className="flex justify-between">
-          <span className="text-text-gray">Vendor:</span>
-          <span className="font-medium text-text-dark">{order.vendor}</span>
-        </div>
-
-        <div>
-          <span className="text-text-gray">Items Ordered:</span>
-          <div className="mt-2 space-y-1">
-            {order.items
-              .filter((item: any) => item.supplierId === supplierUid) // ✅ show only this supplier's items
-              .map((item: any, index: number) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="text-text-dark">{item.name} × {item.qty}</span>
-                  <span className="font-medium text-text-dark">₹{item.price * item.qty}</span>
-                </div>
-              ))}
+    return (
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-semibold text-text-dark">Order #{order.id}</h3>
+            <p className="text-sm text-text-gray">
+              {order.date ? new Date(order.date).toLocaleDateString() : 'No Date'}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            {getStatusIcon(order.status)}
+            <span className="text-sm font-medium capitalize text-text-gray">{order.status}</span>
           </div>
         </div>
 
-        <div className="flex justify-between pt-2 border-t border-gray-200">
-          <span className="font-medium text-text-dark">Total:</span>
-          <span className="font-bold text-primary-purple">₹{order.total}</span>
+        <div className="space-y-3 mb-4">
+          <div className="flex justify-between">
+            <span className="text-text-gray">Vendor:</span>
+            <span className="font-medium text-text-dark">{vendorName}</span>
+          </div>
+
+          <div>
+            <span className="text-text-gray">Items Ordered:</span>
+            <div className="mt-2 space-y-1">
+              {order.items
+                .filter((item: any) => item.supplierId === supplierUid)
+                .map((item: any, index: number) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-text-dark">{item.name} × {item.qty}</span>
+                    <span className="font-medium text-text-dark">₹{item.price * item.qty}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between pt-2 border-t border-gray-200">
+            <span className="font-medium text-text-dark">Total:</span>
+            <span className="font-bold text-primary-purple">₹{order.total}</span>
+          </div>
         </div>
+
+        {showActions && (
+          <div className="flex space-x-3">
+            <button onClick={() => handleAcceptOrder(order.id)}
+              className="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 flex items-center justify-center space-x-2">
+              <CheckCircle size={16} /><span>Accept</span>
+            </button>
+            <button onClick={() => handleRejectOrder(order.id)}
+              className="flex-1 bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 flex items-center justify-center space-x-2">
+              <X size={16} /><span>Reject</span>
+            </button>
+          </div>
+        )}
+
+        {showDelivered && (
+          <button onClick={() => handleMarkDelivered(order.id)}
+            className="w-full btn-primary flex items-center justify-center space-x-2">
+            <CheckCircle size={16} /><span>Mark as Delivered</span>
+          </button>
+        )}
       </div>
-
-      {showActions && (
-        <div className="flex space-x-3">
-          <button onClick={() => handleAcceptOrder(order.id)}
-            className="flex-1 bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 flex items-center justify-center space-x-2">
-            <CheckCircle size={16} /><span>Accept</span>
-          </button>
-          <button onClick={() => handleRejectOrder(order.id)}
-            className="flex-1 bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 flex items-center justify-center space-x-2">
-            <X size={16} /><span>Reject</span>
-          </button>
-        </div>
-      )}
-
-      {showDelivered && (
-        <button onClick={() => handleMarkDelivered(order.id)}
-          className="w-full btn-primary flex items-center justify-center space-x-2">
-          <CheckCircle size={16} /><span>Mark as Delivered</span>
-        </button>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -120,7 +145,7 @@ const SupplierOrders: React.FC = () => {
         <p className="text-text-gray">Process and track your supplier orders</p>
       </div>
 
-      {/* Tabs */}
+      {/* ✅ Tabs */}
       <div className="glass-card p-1">
         <div className="flex space-x-1">
           {['new', 'processing', 'completed'].map(tab => (
@@ -136,7 +161,7 @@ const SupplierOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* Orders Grid */}
+      {/* ✅ Orders Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {activeTab === 'new' && (
           newOrders.length > 0 ? newOrders.map(order => <OrderCard key={order.id} order={order} showActions />) :

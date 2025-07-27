@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { Eye, MapPin, Phone, ShoppingCart } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Eye, ShoppingCart } from 'lucide-react';
 import Modal from '../../components/Common/Modal';
 import { useApp } from '../../contexts/AppContext';
-import { auth } from '../../utils/firebase'; // adjust as per your setup
+import { useAuth } from '../../contexts/AuthContext';   // ✅ Import AuthContext
+import { auth } from '../../utils/firebase';
 
 interface Customer {
   id: string;
-  name: string; // Ideally fetch from Users collection
+  name: string;
   totalOrders: number;
   totalBusiness: number;
   lastOrderDate: Date;
@@ -22,12 +23,13 @@ const SupplierCustomers: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { orders , products } = useApp();
+  const { orders } = useApp();
+  const { getUserName } = useAuth();   // ✅ Use getUserName from AuthContext
   const supplierUid = auth.currentUser?.uid;
-  console.log(orders , products );
-  
 
-  // Filter orders that include products supplied by current supplier
+  const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
+
+  // ✅ Filter orders of this supplier
   const supplierOrders = useMemo(() => {
     if (!supplierUid) return [];
     return orders.filter(order =>
@@ -35,7 +37,7 @@ const SupplierCustomers: React.FC = () => {
     );
   }, [orders, supplierUid]);
 
-  // Aggregate unique vendors (customers) and their stats
+  // ✅ Aggregate unique vendor customers
   const customers: Customer[] = useMemo(() => {
     const map = new Map<string, Customer>();
 
@@ -46,7 +48,7 @@ const SupplierCustomers: React.FC = () => {
       if (!map.has(vendorId)) {
         map.set(vendorId, {
           id: vendorId,
-          name: vendorId, // TODO: Replace with vendor name fetched from Users collection
+          name: vendorNames[vendorId] || vendorId, // temporary until name is fetched
           totalOrders: 0,
           totalBusiness: 0,
           lastOrderDate: new Date(0),
@@ -55,11 +57,9 @@ const SupplierCustomers: React.FC = () => {
       }
 
       const vendorData = map.get(vendorId)!;
-
       vendorData.totalOrders += 1;
       vendorData.totalBusiness += order.total;
 
-      // Convert Firestore timestamp to JS Date if needed
       const orderDate = order.date?.toDate ? order.date.toDate() : new Date(order.date);
       if (orderDate > vendorData.lastOrderDate) {
         vendorData.lastOrderDate = orderDate;
@@ -71,15 +71,24 @@ const SupplierCustomers: React.FC = () => {
         items: order.items.map(i => i.name).join(', '),
         amount: order.total,
       });
-
-      map.set(vendorId, vendorData);
     });
 
-    // Sort customers by last order date descending (most recent first)
-    return Array.from(map.values()).sort(
-      (a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime()
-    );
-  }, [supplierOrders]);
+    return Array.from(map.values()).sort((a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime());
+  }, [supplierOrders, vendorNames]);
+
+  // ✅ Fetch vendor names for all unique vendor IDs
+  useEffect(() => {
+    const fetchNames = async () => {
+      const uniqueVendorIds = [...new Set(supplierOrders.map(o => o.vendor).filter(Boolean))];
+      for (const vendorId of uniqueVendorIds) {
+        if (!vendorNames[vendorId]) {
+          const name = await getUserName(vendorId);
+          setVendorNames(prev => ({ ...prev, [vendorId]: name }));
+        }
+      }
+    };
+    fetchNames();
+  }, [supplierOrders, getUserName, vendorNames]);
 
   const handleViewDetails = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -93,7 +102,7 @@ const SupplierCustomers: React.FC = () => {
         <p className="text-text-gray">View and manage your vendor customers</p>
       </div>
 
-      {/* Customer Stats */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-card p-6 text-center">
           <p className="text-2xl font-bold text-primary-purple">{customers.length}</p>
@@ -101,19 +110,19 @@ const SupplierCustomers: React.FC = () => {
         </div>
         <div className="glass-card p-6 text-center">
           <p className="text-2xl font-bold text-success">
-            ₹{customers.reduce((total, c) => total + c.totalBusiness, 0).toLocaleString()}
+            ₹{customers.reduce((t, c) => t + c.totalBusiness, 0).toLocaleString()}
           </p>
           <p className="text-sm text-text-gray">Total Business</p>
         </div>
         <div className="glass-card p-6 text-center">
           <p className="text-2xl font-bold text-primary-blue">
-            {customers.reduce((total, c) => total + c.totalOrders, 0)}
+            {customers.reduce((t, c) => t + c.totalOrders, 0)}
           </p>
           <p className="text-sm text-text-gray">Total Orders</p>
         </div>
       </div>
 
-      {/* Customer List */}
+      {/* Customer Table */}
       <div className="glass-card">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-text-dark">Customer List</h3>
@@ -123,29 +132,20 @@ const SupplierCustomers: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Vendor Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Total Orders
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Last Order
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Total Business
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">
-                  Action
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Vendor Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Total Orders</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Last Order</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Total Business</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {customers.map((customer) => (
+              {customers.map(customer => (
                 <tr key={customer.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-text-dark">{customer.name}</div>
-                    {/* TODO: add phone & location if available */}
+                    <div className="font-medium text-text-dark">
+                      {vendorNames[customer.id] || "Loading..."}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-text-dark">
                     <div className="flex items-center">
@@ -157,15 +157,10 @@ const SupplierCustomers: React.FC = () => {
                     {customer.lastOrderDate.toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="font-semibold text-success">
-                      ₹{customer.totalBusiness.toLocaleString()}
-                    </span>
+                    <span className="font-semibold text-success">₹{customer.totalBusiness.toLocaleString()}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleViewDetails(customer)}
-                      className="btn-secondary flex items-center space-x-1 text-sm px-3 py-1"
-                    >
+                    <button onClick={() => handleViewDetails(customer)} className="btn-secondary flex items-center space-x-1 text-sm px-3 py-1">
                       <Eye size={14} />
                       <span>View Details</span>
                     </button>
@@ -175,9 +170,7 @@ const SupplierCustomers: React.FC = () => {
 
               {customers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-6 text-text-gray">
-                    No customers found.
-                  </td>
+                  <td colSpan={5} className="text-center py-6 text-text-gray">No customers found.</td>
                 </tr>
               )}
             </tbody>
@@ -185,65 +178,33 @@ const SupplierCustomers: React.FC = () => {
         </div>
       </div>
 
-      {/* Customer Details Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Customer Details"
-        size="lg"
-      >
+      {/* Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Customer Details" size="lg">
         {selectedCustomer && (
           <div className="space-y-6">
             <div>
               <h4 className="font-medium text-text-dark mb-3">Customer Information</h4>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-text-gray">Name:</span>
-                  <span className="font-medium text-text-dark">{selectedCustomer.name}</span>
-                </div>
-                {/* Add phone and location here if fetched */}
-              </div>
+              <p className="font-medium">{vendorNames[selectedCustomer.id] || selectedCustomer.name}</p>
             </div>
 
             <div>
               <h4 className="font-medium text-text-dark mb-3">Business Summary</h4>
               <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-text-gray">Total Orders:</span>
-                  <span className="font-medium text-text-dark">{selectedCustomer.totalOrders}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-gray">Total Business:</span>
-                  <span className="font-semibold text-success">
-                    ₹{selectedCustomer.totalBusiness.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-gray">Last Order:</span>
-                  <span className="font-medium text-text-dark">
-                    {selectedCustomer.lastOrderDate.toLocaleDateString()}
-                  </span>
-                </div>
+                <div className="flex justify-between"><span>Total Orders:</span><span>{selectedCustomer.totalOrders}</span></div>
+                <div className="flex justify-between"><span>Total Business:</span><span className="text-success">₹{selectedCustomer.totalBusiness.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span>Last Order:</span><span>{selectedCustomer.lastOrderDate.toLocaleDateString()}</span></div>
               </div>
             </div>
 
             <div className="border-t border-gray-200 pt-4">
               <h4 className="font-medium text-text-dark mb-3">Recent Order History</h4>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {selectedCustomer.orders.length === 0 && (
-                  <p className="text-text-gray">No orders found.</p>
-                )}
-                {selectedCustomer.orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
-                  >
+                {selectedCustomer.orders.map(order => (
+                  <div key={order.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-text-dark">{order.id}</p>
+                      <p className="font-medium">{order.id}</p>
                       <p className="text-sm text-text-gray">{order.items}</p>
-                      <p className="text-xs text-text-gray">
-                        {order.date.toLocaleDateString()}
-                      </p>
+                      <p className="text-xs text-text-gray">{order.date.toLocaleDateString()}</p>
                     </div>
                     <p className="font-semibold text-primary-purple">₹{order.amount}</p>
                   </div>

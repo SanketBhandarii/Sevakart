@@ -50,6 +50,7 @@ interface AuthContextType {
     phone: string,
     location: string
   ) => Promise<void>;
+  getUserName: (uid: string) => Promise<string>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -211,6 +212,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const getUserName = async (uid: string): Promise<string> => {
+    try {
+      const userRef = doc(db, "User", uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        return userSnap.data().name || "Unknown Vendor";
+      }
+      return "Unknown Vendor";
+    } catch (error) {
+      console.error(
+        `[AuthContext] Error fetching user name for UID: ${uid}`,
+        error
+      );
+      return "Unknown Vendor";
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -220,6 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         login,
         logout,
         setCurrentUser,
+        getUserName,
         updateUser,
       }}
     >
