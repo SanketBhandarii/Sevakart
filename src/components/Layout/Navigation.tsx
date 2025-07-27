@@ -120,7 +120,7 @@ const Navigation: React.FC = () => {
       </div>
 
       {/* Mobile Header */}
-      <div className="lg:hidden">
+      <div className="lg:hidden w-[80vw] ">
         <div className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -149,22 +149,26 @@ const Navigation: React.FC = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-              <div className="absolute top-0 right-0 -mr-12 pt-2">
-                <button
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="ml-1 flex items-center justify-center h-10 w-10 rounded-full bg-white text-gray-600 hover:text-gray-900"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+            <div className="relative flex-1 flex flex-col w-[90vw] max-w-full bg-white h-full">
+              {/* Move close button inside this container, aligned at top right */}
 
-              <div className="flex items-center justify-center h-16 px-4 border-b border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <Store className="h-8 w-8 text-primary-purple" />
-                  <span className="text-xl font-bold text-text-dark">
-                    SevaKart
-                  </span>
+              <div className=" flex flex-row-reverse justify-between border-b">
+                <div className="flex justify-end p-4  border-gray-200">
+                  <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center h-10 w-10 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-center h-16 px-4  border-gray-200">
+                  <div className="flex items-center space-x-2">
+                    <Store className="h-8 w-8 text-primary-purple" />
+                    <span className="text-xl font-bold text-text-dark">
+                      SevaKart
+                    </span>
+                  </div>
                 </div>
               </div>
 
