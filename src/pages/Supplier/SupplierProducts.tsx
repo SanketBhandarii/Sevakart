@@ -5,6 +5,118 @@ import Modal from "../../components/Common/Modal";
 import toast from "react-hot-toast";
 import { auth } from "@/utils/firebase";
 
+// ✅ Move ProductForm OUTSIDE - this fixes the focus issue
+const ProductForm = ({ 
+  onSubmit, 
+  title, 
+  formData, 
+  setFormData, 
+  categories, 
+  setIsAddModalOpen, 
+  setIsEditModalOpen, 
+  setEditingProduct, 
+  resetForm 
+}: { 
+  onSubmit: (e: React.FormEvent) => void; 
+  title: string;
+  formData: any;
+  setFormData: any;
+  categories: string[];
+  setIsAddModalOpen: any;
+  setIsEditModalOpen: any;
+  setEditingProduct: any;
+  resetForm: any;
+}) => (
+  <form onSubmit={onSubmit} className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium mb-2">Product Name</label>
+      <input
+        type="text"
+        value={formData.name}
+        onChange={(e) => setFormData((p: any) => ({ ...p, name: e.target.value }))}
+        className="input-field"
+        required
+      />
+    </div>
+
+    {/* Category */}
+    <div>
+      <label className="block text-sm font-medium mb-2">Category</label>
+      <select
+        value={formData.category}
+        onChange={(e) => setFormData((p: any) => ({ ...p, category: e.target.value }))}
+        className="input-field"
+      >
+        {categories.filter((c: string) => c !== "all").map((c: string) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Price & Unit */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium mb-2">Price</label>
+        <input
+          type="number"
+          min="0"
+          value={formData.price}
+          onChange={(e) => setFormData((p: any) => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
+          className="input-field"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-2">Unit</label>
+        <select
+          value={formData.unit}
+          onChange={(e) => setFormData((p: any) => ({ ...p, unit: e.target.value }))}
+          className="input-field"
+        >
+          <option value="kg">kg</option>
+          <option value="L">L</option>
+          <option value="piece">piece</option>
+          <option value="packet">packet</option>
+        </select>
+      </div>
+    </div>
+
+    {/* Stock */}
+    <div>
+      <label className="block text-sm font-medium mb-2">Stock Quantity</label>
+      <input
+        type="number"
+        min="0"
+        value={formData.stock}
+        onChange={(e) => setFormData((p: any) => ({ ...p, stock: parseInt(e.target.value) || 0 }))}
+        className="input-field"
+        required
+      />
+    </div>
+
+    {/* Buttons */}
+    <div className="flex space-x-3 pt-4">
+      <button
+        type="button"
+        onClick={() => {
+          setIsAddModalOpen(false);
+          setIsEditModalOpen(false);
+          setEditingProduct(null);
+          resetForm();
+        }}
+        className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50"
+      >
+        Cancel
+      </button>
+      <button type="submit" className="flex-1 btn-primary">
+        {title}
+      </button>
+    </div>
+  </form>
+);
+
 const SupplierProducts: React.FC = () => {
   const { products, addProduct, updateProduct, deleteProduct, categories } = useApp();
 
@@ -114,98 +226,6 @@ const SupplierProducts: React.FC = () => {
     });
   };
 
-  // ✅ Product Form Component
-  const ProductForm = ({ onSubmit, title }: { onSubmit: (e: React.FormEvent) => void; title: string }) => (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-2">Product Name</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-          className="input-field"
-          required
-        />
-      </div>
-
-      {/* Category */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Category</label>
-        <select
-          value={formData.category}
-          onChange={(e) => setFormData((p) => ({ ...p, category: e.target.value }))}
-          className="input-field"
-        >
-          {categories.filter((c) => c !== "all").map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Price & Unit */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Price</label>
-          <input
-            type="number"
-            min="0"
-            value={formData.price}
-            onChange={(e) => setFormData((p) => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
-            className="input-field"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2">Unit</label>
-          <select
-            value={formData.unit}
-            onChange={(e) => setFormData((p) => ({ ...p, unit: e.target.value }))}
-            className="input-field"
-          >
-            <option value="kg">kg</option>
-            <option value="L">L</option>
-            <option value="piece">piece</option>
-            <option value="packet">packet</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Stock */}
-      <div>
-        <label className="block text-sm font-medium mb-2">Stock Quantity</label>
-        <input
-          type="number"
-          min="0"
-          value={formData.stock}
-          onChange={(e) => setFormData((p) => ({ ...p, stock: parseInt(e.target.value) || 0 }))}
-          className="input-field"
-          required
-        />
-      </div>
-
-      {/* Buttons */}
-      <div className="flex space-x-3 pt-4">
-        <button
-          type="button"
-          onClick={() => {
-            setIsAddModalOpen(false);
-            setIsEditModalOpen(false);
-            setEditingProduct(null);
-            resetForm();
-          }}
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50"
-        >
-          Cancel
-        </button>
-        <button type="submit" className="flex-1 btn-primary">
-          {title}
-        </button>
-      </div>
-    </form>
-  );
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -273,11 +293,31 @@ const SupplierProducts: React.FC = () => {
 
       {/* Modals */}
       <Modal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); resetForm(); }} title="Add Product">
-        <ProductForm onSubmit={handleAddProduct} title="Add Product" />
+        <ProductForm 
+          onSubmit={handleAddProduct} 
+          title="Add Product"
+          formData={formData}
+          setFormData={setFormData}
+          categories={categories}
+          setIsAddModalOpen={setIsAddModalOpen}
+          setIsEditModalOpen={setIsEditModalOpen}
+          setEditingProduct={setEditingProduct}
+          resetForm={resetForm}
+        />
       </Modal>
 
       <Modal isOpen={isEditModalOpen} onClose={() => { setIsEditModalOpen(false); setEditingProduct(null); resetForm(); }} title="Edit Product">
-        <ProductForm onSubmit={handleEditProduct} title="Update Product" />
+        <ProductForm 
+          onSubmit={handleEditProduct} 
+          title="Update Product"
+          formData={formData}
+          setFormData={setFormData}
+          categories={categories}
+          setIsAddModalOpen={setIsAddModalOpen}
+          setIsEditModalOpen={setIsEditModalOpen}
+          setEditingProduct={setEditingProduct}
+          resetForm={resetForm}
+        />
       </Modal>
     </div>
   );
