@@ -22,9 +22,6 @@ const VendorShop: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // ✅ Vendor UID (should come from authenticated user context)
-  const vendorUid = "vendor_uid_123";
-
   // ✅ Search Handler
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -49,32 +46,27 @@ const VendorShop: React.FC = () => {
     toast.success(`${product.name} added to cart!`);
   };
 
-  // ✅ Checkout → Directly places order & clears Firestore cart
+  // ✅ Checkout → Places order using new format (no supplier field at root)
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Your cart is empty");
       return;
     }
 
-    const supplierIds = [...new Set(cart.map((item) => item.supplierId || ""))];
-    const supplierField = supplierIds.length === 1 ? supplierIds[0] : "multiple";
-
     const newOrder = {
-      vendorId: vendorUid,
       items: cart.map((item) => ({
         name: item.name,
         qty: item.quantity,
         price: item.price,
-        supplierId: item.supplierId || "",
+        supplierId: (item as any).supplierId || "",
       })),
-    total: cartTotal,
+      total: cartTotal,
       status: "ordered" as const,
-      supplier: supplierField,
     };
 
     try {
       await addOrder(newOrder);
-      await clearCart(); // ✅ Clears cart in Firestore only
+      await clearCart(); // ✅ Clears Firestore cart
       setIsCartOpen(false);
       toast.success("Order placed successfully!");
     } catch (error) {
