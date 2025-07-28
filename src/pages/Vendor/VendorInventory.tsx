@@ -200,7 +200,7 @@ const VendorInventory: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-4 justify-between">
         <div>
           <h1 className="text-2xl font-bold">Inventory Management</h1>
           <p className="text-text-gray">Track and manage your stock levels</p>
