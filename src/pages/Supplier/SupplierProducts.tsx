@@ -5,6 +5,24 @@ import Modal from "../../components/Common/Modal";
 import toast from "react-hot-toast";
 import { auth } from "@/utils/firebase";
 
+// ✅ Simple food image function using Unsplash
+const getFoodImage = (productName: string, category: string) => {
+  const seed = productName.toLowerCase().replace(/\s+/g, '-');
+  const categoryKeywords: { [key: string]: string } = {
+    'dairy': 'milk-dairy',
+    'vegetables': 'fresh-vegetables',
+    'fruits': 'fresh-fruits',
+    'grains': 'grains-cereals',
+    'spices': 'spices-herbs',
+    'meat': 'meat-chicken',
+    'beverages': 'drinks-juice',
+    'snacks': 'snacks-food',
+    'bakery': 'bread-bakery'
+  };
+  const keyword = categoryKeywords[category.toLowerCase()] || 'food';
+  return `https://source.unsplash.com/400x300/?${keyword}&sig=${seed}`;
+};
+
 // ✅ Product Form with Dynamic Category Option
 const ProductForm = ({ 
   onSubmit, title, formData, setFormData, categories,
@@ -246,27 +264,41 @@ const SupplierProducts: React.FC = () => {
         </button>
       </div>
 
-      {/* Product Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {/* ➕ Add Product Card */}
+      {/* Product Grid - Fixed responsive grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+        {/* ➕ Add Product Card - Fixed height */}
         <div
           onClick={() => setIsAddModalOpen(true)}
-          className="glass-card p-4 sm:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-lg transition border-2 border-dashed border-purple-400 text-purple-600 min-h-[200px] sm:min-h-[250px]"
+          className="glass-card p-4 sm:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-lg transition border-2 border-dashed border-purple-400 text-purple-600 h-[280px] sm:h-[320px]"
         >
           <Plus size={32} className="sm:size-10 mb-2" />
           <p className="font-semibold text-sm sm:text-base text-center">Add New Product</p>
         </div>
 
-        {/* Supplier Products */}
+        {/* Supplier Products - Fixed height and added images */}
         {supplierProducts.map((product) => (
-          <div key={product.id} className="glass-card p-4 sm:p-6 hover:shadow-lg transition">
-            {/* Product Image/Icon */}
-            <div className="aspect-square bg-gray-200 rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
-              <span className="text-2xl sm:text-4xl">📦</span>
+          <div key={product.id} className="glass-card p-4 sm:p-6 hover:shadow-lg transition h-[280px] sm:h-[320px] flex flex-col">
+            {/* Product Image - Real food images */}
+            <div className="h-32 sm:h-36 bg-gray-200 rounded-lg mb-3 sm:mb-4 flex items-center justify-center overflow-hidden">
+              <img
+                src={getFoodImage(product.name, product.category)}
+                alt={product.name}
+                className="w-full h-full object-cover rounded-lg"
+                onError={(e) => {
+                  // Fallback to emoji if image fails
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              {/* Fallback emoji - hidden by default */}
+              <span className="hidden text-2xl sm:text-4xl">📦</span>
             </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold">{product.name}</h3>
-              <p className="text-sm text-gray-500">{product.category}</p>
+            
+            {/* Product Info - Flex grow to fill remaining space */}
+            <div className="space-y-2 flex-1 flex flex-col">
+              <h3 className="font-semibold text-sm sm:text-base line-clamp-2">{product.name}</h3>
+              <p className="text-xs sm:text-sm text-gray-500">{product.category}</p>
               <div className="flex justify-between items-center">
                 <span className="text-base sm:text-lg font-bold text-purple-600">
                   ₹{product.price}/{product.unit}
@@ -279,8 +311,10 @@ const SupplierProducts: React.FC = () => {
                   {product.stock} in stock
                 </span>
               </div>
-              <div className="flex space-x-2 pt-2">
-                <button onClick={() => openEditModal(product)} className="flex-1 btn-secondary text-sm flex items-center justify-center space-x-1">
+              
+              {/* Buttons at bottom */}
+              <div className="flex space-x-2 pt-2 mt-auto">
+                <button onClick={() => openEditModal(product)} className="flex-1 btn-secondary text-xs sm:text-sm flex items-center justify-center space-x-1">
                   <Edit2 size={14} /> <span>Edit</span>
                 </button>
                 <button 

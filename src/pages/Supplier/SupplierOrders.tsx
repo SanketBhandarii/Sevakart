@@ -4,12 +4,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CheckCircle, X, Truck, Package, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { auth } from '../../utils/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../utils/firebase';
 
 const SupplierOrders: React.FC = () => {
   const { orders, updateOrderStatus, deleteOrder } = useApp();
   const { getUserName } = useAuth();
   const [activeTab, setActiveTab] = useState<'new' | 'processing' | 'completed'>('new');
   const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
+  const [vendorPhones, setVendorPhones] = useState<Record<string, string>>({});
 
   const supplierUid = auth.currentUser?.uid;
 
@@ -17,20 +20,38 @@ const SupplierOrders: React.FC = () => {
     order.items.some((item: any) => item.supplierId === supplierUid)
   );
 
-  const fetchVendorName = async (vendorUid: string) => {
-    if (vendorNames[vendorUid]) {
-      console.log(`[VendorName] Cached: ${vendorUid} -> ${vendorNames[vendorUid]}`);
+  const fetchVendorDetails = async (vendorUid: string) => {
+    if (vendorNames[vendorUid] && vendorPhones[vendorUid]) {
+      console.log(`[VendorDetails] Cached: ${vendorUid} -> ${vendorNames[vendorUid]}`);
       return;
     }
 
-    console.log(`[VendorName] Fetching vendor name for UID: ${vendorUid}`);
-    const name = await getUserName(vendorUid);
-    setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
+    console.log(`[VendorDetails] Fetching details for UID: ${vendorUid}`);
+    try {
+      const userDoc = await getDoc(doc(db, 'User', vendorUid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const name = userData.name || 'Unknown Vendor';
+        const phone = userData.phone || 'No phone';
+        
+        setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
+        setVendorPhones(prev => ({ ...prev, [vendorUid]: phone }));
+      } else {
+        const name = await getUserName(vendorUid);
+        setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
+        setVendorPhones(prev => ({ ...prev, [vendorUid]: 'No phone' }));
+      }
+    } catch (error) {
+      console.error('Error fetching vendor details:', error);
+      const name = await getUserName(vendorUid);
+      setVendorNames(prev => ({ ...prev, [vendorUid]: name }));
+      setVendorPhones(prev => ({ ...prev, [vendorUid]: 'No phone' }));
+    }
   };
 
   useEffect(() => {
     supplierOrders.forEach(order => {
-      if (order.vendor) fetchVendorName(order.vendor);
+      if (order.vendor) fetchVendorDetails(order.vendor);
     });
   }, [supplierOrders]);
 
@@ -66,7 +87,8 @@ const SupplierOrders: React.FC = () => {
     order: any; showActions?: boolean; showDelivered?: boolean;
   }) => {
     const vendorName = vendorNames[order.vendor] || 'Loading...';
-
+    const vendorPhone = vendorPhones[order.vendor] || 'Loading...';
+    
     return (
       <div className="glass-card p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
@@ -86,6 +108,11 @@ const SupplierOrders: React.FC = () => {
           <div className="flex justify-between">
             <span className="text-text-gray">Vendor:</span>
             <span className="font-medium text-text-dark truncate ml-2">{vendorName}</span>
+          </div>
+
+          <div className="flex justify-between">
+            <span className="text-text-gray">Vendor Phone:</span>
+            <span className="font-medium text-text-dark truncate ml-2">{vendorPhone}</span>
           </div>
 
           <div>
@@ -138,7 +165,6 @@ const SupplierOrders: React.FC = () => {
         <p className="text-text-gray">Process and track your supplier orders</p>
       </div>
 
-      {/* ✅ Tabs - Made responsive */}
       <div className="glass-card p-1">
         <div className="flex space-x-1">
           {['new', 'processing', 'completed'].map(tab => (
@@ -161,12 +187,11 @@ const SupplierOrders: React.FC = () => {
         </div>
       </div>
 
-      {/* ✅ Orders Grid - Made responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-        {activeTab === 'new' && (
-          newOrders.length > 0 ? newOrders.map(order => <OrderCard key={order.id} order={order} showActions />) :
-          <EmptyState icon={<CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />} text="No new orders to process" />
-        )}
+          {activeTab === 'new' && (
+            newOrders.length > 0 ? newOrders.map(order => <OrderCard key={order.id} order={order} showActions />) :
+            <EmptyState icon={<CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />} text="No new orders to process" />
+          )}
 
         {activeTab === 'processing' && (
           processingOrders.length > 0 ? processingOrders.map(order => <OrderCard key={order.id} order={order} showDelivered />) :
