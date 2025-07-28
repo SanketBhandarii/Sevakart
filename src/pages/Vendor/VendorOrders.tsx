@@ -170,7 +170,7 @@ const VendorOrders: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={() => handleViewDetails(order)}
-            className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+            className="btn-secondary flex-1 flex items-center justify-center space-x-2 py-2 px-4 h-10"
           >
             <Eye size={16} /> <span>View Details</span>
           </button>
@@ -178,7 +178,7 @@ const VendorOrders: React.FC = () => {
             <button
               onClick={() => handleReorder(order)}
               disabled={loadingReorder === order.id}
-              className={`btn-primary flex-1 ${loadingReorder === order.id ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`btn-primary flex-1 py-2 px-4 h-10 ${loadingReorder === order.id ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {loadingReorder === order.id ? "Reordering..." : "Reorder"}
             </button>
