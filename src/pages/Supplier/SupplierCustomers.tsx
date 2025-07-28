@@ -2,8 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Eye, ShoppingCart } from 'lucide-react';
 import Modal from '../../components/Common/Modal';
 import { useApp } from '../../contexts/AppContext';
-import { useAuth } from '../../contexts/AuthContext';   // ✅ Import AuthContext
+import { useAuth } from '../../contexts/AuthContext';
 import { auth } from '../../utils/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../utils/firebase';
 
 interface Customer {
   id: string;
@@ -24,12 +26,12 @@ const SupplierCustomers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { orders } = useApp();
-  const { getUserName } = useAuth();   // ✅ Use getUserName from AuthContext
+  const { getUserName } = useAuth();
   const supplierUid = auth.currentUser?.uid;
 
   const [vendorNames, setVendorNames] = useState<Record<string, string>>({});
+  const [vendorPhones, setVendorPhones] = useState<Record<string, string>>({});
 
-  // ✅ Filter orders of this supplier
   const supplierOrders = useMemo(() => {
     if (!supplierUid) return [];
     return orders.filter(order =>
@@ -37,7 +39,6 @@ const SupplierCustomers: React.FC = () => {
     );
   }, [orders, supplierUid]);
 
-  // ✅ Aggregate unique vendor customers
   const customers: Customer[] = useMemo(() => {
     const map = new Map<string, Customer>();
 
@@ -48,7 +49,7 @@ const SupplierCustomers: React.FC = () => {
       if (!map.has(vendorId)) {
         map.set(vendorId, {
           id: vendorId,
-          name: vendorNames[vendorId] || vendorId, // temporary until name is fetched
+          name: vendorNames[vendorId] || vendorId,
           totalOrders: 0,
           totalBusiness: 0,
           lastOrderDate: new Date(0),
@@ -76,19 +77,42 @@ const SupplierCustomers: React.FC = () => {
     return Array.from(map.values()).sort((a, b) => b.lastOrderDate.getTime() - a.lastOrderDate.getTime());
   }, [supplierOrders, vendorNames]);
 
-  // ✅ Fetch vendor names for all unique vendor IDs
+  const fetchVendorDetails = async (vendorId: string) => {
+    if (vendorNames[vendorId] && vendorPhones[vendorId]) {
+      return;
+    }
+
+    try {
+      const userDoc = await getDoc(doc(db, 'User', vendorId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const name = userData.name || 'Unknown Vendor';
+        const phone = userData.phone || 'No phone';
+        
+        setVendorNames(prev => ({ ...prev, [vendorId]: name }));
+        setVendorPhones(prev => ({ ...prev, [vendorId]: phone }));
+      } else {
+        const name = await getUserName(vendorId);
+        setVendorNames(prev => ({ ...prev, [vendorId]: name }));
+        setVendorPhones(prev => ({ ...prev, [vendorId]: 'No phone' }));
+      }
+    } catch (error) {
+      console.error('Error fetching vendor details:', error);
+      const name = await getUserName(vendorId);
+      setVendorNames(prev => ({ ...prev, [vendorId]: name }));
+      setVendorPhones(prev => ({ ...prev, [vendorId]: 'No phone' }));
+    }
+  };
+
   useEffect(() => {
-    const fetchNames = async () => {
+    const fetchDetails = async () => {
       const uniqueVendorIds = [...new Set(supplierOrders.map(o => o.vendor).filter(Boolean))];
       for (const vendorId of uniqueVendorIds) {
-        if (!vendorNames[vendorId]) {
-          const name = await getUserName(vendorId);
-          setVendorNames(prev => ({ ...prev, [vendorId]: name }));
-        }
+        await fetchVendorDetails(vendorId);
       }
     };
-    fetchNames();
-  }, [supplierOrders, getUserName, vendorNames]);
+    fetchDetails();
+  }, [supplierOrders]);
 
   const handleViewDetails = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -102,7 +126,6 @@ const SupplierCustomers: React.FC = () => {
         <p className="text-text-gray">View and manage your vendor customers</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="glass-card p-6 text-center">
           <p className="text-2xl font-bold text-primary-purple">{customers.length}</p>
@@ -122,7 +145,6 @@ const SupplierCustomers: React.FC = () => {
         </div>
       </div>
 
-      {/* Customer Table */}
       <div className="glass-card">
         <div className="p-6 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-text-dark">Customer List</h3>
@@ -133,6 +155,7 @@ const SupplierCustomers: React.FC = () => {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Vendor Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Phone Number</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Total Orders</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Last Order</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-text-gray uppercase tracking-wider">Total Business</th>
@@ -145,6 +168,11 @@ const SupplierCustomers: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-text-dark">
                       {vendorNames[customer.id] || "Loading..."}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-text-dark">
+                      {vendorPhones[customer.id] || "Loading..."}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-text-dark">
@@ -170,7 +198,7 @@ const SupplierCustomers: React.FC = () => {
 
               {customers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center py-6 text-text-gray">No customers found.</td>
+                  <td colSpan={6} className="text-center py-6 text-text-gray">No customers found.</td>
                 </tr>
               )}
             </tbody>
@@ -178,13 +206,15 @@ const SupplierCustomers: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Customer Details" size="lg">
         {selectedCustomer && (
           <div className="space-y-6">
             <div>
               <h4 className="font-medium text-text-dark mb-3">Customer Information</h4>
-              <p className="font-medium">{vendorNames[selectedCustomer.id] || selectedCustomer.name}</p>
+              <div className="space-y-2">
+                <p><span className="text-text-gray">Name:</span> <span className="font-medium">{vendorNames[selectedCustomer.id] || selectedCustomer.name}</span></p>
+                <p><span className="text-text-gray">Phone:</span> <span className="font-medium">{vendorPhones[selectedCustomer.id] || 'Loading...'}</span></p>
+              </div>
             </div>
 
             <div>
@@ -218,4 +248,4 @@ const SupplierCustomers: React.FC = () => {
   );
 };
 
-export default SupplierCustomers;
+export default SupplierCustomers; 
