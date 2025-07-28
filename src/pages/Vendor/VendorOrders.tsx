@@ -4,8 +4,8 @@ import { Eye, Package, Truck, CheckCircle, Clock } from "lucide-react";
 import Modal from "../../components/Common/Modal";
 import { auth } from "../../utils/firebase";
 import toast from "react-hot-toast";
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../utils/firebase';
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../../utils/firebase";
 
 const VendorOrders: React.FC = () => {
   const { orders, reorder } = useApp();
@@ -13,37 +13,54 @@ const VendorOrders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingReorder, setLoadingReorder] = useState<string | null>(null);
-  const [supplierPhones, setSupplierPhones] = useState<Record<string, string>>({});
+  const [supplierPhones, setSupplierPhones] = useState<Record<string, string>>(
+    {}
+  );
+  const [supplierNames, setSupplierNames] = useState<Record<string, string>>(
+    {}
+  );
 
   const vendorUid = auth.currentUser?.uid;
 
-  const myOrders = orders.filter(order => order.vendor === vendorUid);
-  const currentOrders = myOrders.filter(order => order.status !== "delivered");
-  const orderHistory = myOrders.filter(order => order.status === "delivered");
+  const myOrders = orders.filter((order) => order.vendor === vendorUid);
+  const currentOrders = myOrders.filter(
+    (order) => order.status !== "delivered"
+  );
+  const orderHistory = myOrders.filter((order) => order.status === "delivered");
 
-  const fetchSupplierPhone = async (supplierId: string) => {
-    if (supplierPhones[supplierId]) {
+  const fetchSupplierDetails = async (supplierId: string) => {
+    if (supplierPhones[supplierId] && supplierNames[supplierId]) {
       return;
     }
 
     try {
-      const userDoc = await getDoc(doc(db, 'User', supplierId));
+      const userDoc = await getDoc(doc(db, "User", supplierId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        const phone = userData.phone || 'No phone';
-        setSupplierPhones(prev => ({ ...prev, [supplierId]: phone }));
+        const phone = userData.phone || "No phone";
+        const name = userData.name || "Unknown Supplier";
+        setSupplierPhones((prev) => ({ ...prev, [supplierId]: phone }));
+        setSupplierNames((prev) => ({ ...prev, [supplierId]: name }));
       } else {
-        setSupplierPhones(prev => ({ ...prev, [supplierId]: 'No phone' }));
+        setSupplierPhones((prev) => ({ ...prev, [supplierId]: "No phone" }));
+        setSupplierNames((prev) => ({
+          ...prev,
+          [supplierId]: "Unknown Supplier",
+        }));
       }
     } catch (error) {
-      console.error('Error fetching supplier phone:', error);
-      setSupplierPhones(prev => ({ ...prev, [supplierId]: 'No phone' }));
+      console.error("Error fetching supplier details:", error);
+      setSupplierPhones((prev) => ({ ...prev, [supplierId]: "No phone" }));
+      setSupplierNames((prev) => ({
+        ...prev,
+        [supplierId]: "Unknown Supplier",
+      }));
     }
   };
 
   useEffect(() => {
     const allSupplierIds = new Set<string>();
-    myOrders.forEach(order => {
+    myOrders.forEach((order) => {
       order.items?.forEach((item: any) => {
         if (item.supplierId) {
           allSupplierIds.add(item.supplierId);
@@ -51,26 +68,34 @@ const VendorOrders: React.FC = () => {
       });
     });
 
-    allSupplierIds.forEach(supplierId => {
-      fetchSupplierPhone(supplierId);
+    allSupplierIds.forEach((supplierId) => {
+      fetchSupplierDetails(supplierId);
     });
   }, [myOrders]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "ordered": return <Clock className="h-4 w-4" />;
-      case "shipped": return <Truck className="h-4 w-4" />;
-      case "delivered": return <CheckCircle className="h-4 w-4" />;
-      default: return <Package className="h-4 w-4" />;
+      case "ordered":
+        return <Clock className="h-4 w-4" />;
+      case "shipped":
+        return <Truck className="h-4 w-4" />;
+      case "delivered":
+        return <CheckCircle className="h-4 w-4" />;
+      default:
+        return <Package className="h-4 w-4" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "ordered": return "bg-yellow-100 text-yellow-700 border-yellow-200";
-      case "shipped": return "bg-blue-100 text-blue-700 border-blue-200";
-      case "delivered": return "bg-green-100 text-green-700 border-green-200";
-      default: return "bg-gray-100 text-gray-600 border-gray-200";
+      case "ordered":
+        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+      case "shipped":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "delivered":
+        return "bg-green-100 text-green-700 border-green-200";
+      default:
+        return "bg-gray-100 text-gray-600 border-gray-200";
     }
   };
 
@@ -102,40 +127,61 @@ const VendorOrders: React.FC = () => {
     return Array.from(suppliers);
   };
 
-  const OrderCard = ({ order, showReorder = false }: { order: any; showReorder?: boolean }) => {
+  const OrderCard = ({
+    order,
+    showReorder = false,
+  }: {
+    order: any;
+    showReorder?: boolean;
+  }) => {
     const uniqueSuppliers = getUniqueSuppliers(order.items);
-    
+
     return (
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="font-semibold">Order #{order.id}</h3>
             <p className="text-sm text-gray-500">
-              {order.date?.toDate ? order.date.toDate().toLocaleDateString() : new Date(order.date).toLocaleDateString()}
+              {order.date?.toDate
+                ? order.date.toDate().toLocaleDateString()
+                : new Date(order.date).toLocaleDateString()}
             </p>
           </div>
-          <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getStatusColor(order.status)}`}>
+          <div
+            className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getStatusColor(
+              order.status
+            )}`}
+          >
             {getStatusIcon(order.status)}
-            <span className="text-sm font-medium capitalize">{order.status}</span>
+            <span className="text-sm font-medium capitalize">
+              {order.status}
+            </span>
           </div>
         </div>
 
         <div className="space-y-2 mb-4">
-          <div className="flex justify-between">
-            <span className="text-gray-500">Suppliers:</span>
-            <span className="font-medium">{uniqueSuppliers.length > 1 ? "Multiple Suppliers" : "Single Supplier"}</span>
-          </div>
-          
           {uniqueSuppliers.length === 1 && (
-            <div className="flex justify-between">
-              <span className="text-gray-500">Supplier Phone:</span>
-              <span className="font-medium">{supplierPhones[uniqueSuppliers[0] as string] || 'Loading...'}</span>
-            </div>
+            <>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Supplier Name:</span>
+                <span className="font-medium">
+                  {supplierNames[uniqueSuppliers[0] as string] || "Loading..."}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Supplier Phone:</span>
+                <span className="font-medium">
+                  {supplierPhones[uniqueSuppliers[0] as string] || "Loading..."}
+                </span>
+              </div>
+            </>
           )}
 
           <div className="flex justify-between">
             <span className="text-gray-500">Items:</span>
-            <span className="font-medium">{order.items?.length || 0} item(s)</span>
+            <span className="font-medium">
+              {order.items?.length || 0} item(s)
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-500">Total:</span>
@@ -144,14 +190,21 @@ const VendorOrders: React.FC = () => {
         </div>
 
         <div className="flex space-x-3">
-          <button onClick={() => handleViewDetails(order)} className="flex-1 btn-secondary flex items-center justify-center space-x-2">
+          <button
+            onClick={() => handleViewDetails(order)}
+            className="flex-1 btn-secondary flex items-center justify-center space-x-2"
+          >
             <Eye size={16} /> <span>View Details</span>
           </button>
           {showReorder && (
-            <button 
-              onClick={() => handleReorder(order)} 
-              disabled={loadingReorder === order.id} 
-              className={`flex-1 btn-primary ${loadingReorder === order.id ? "opacity-50 cursor-not-allowed" : ""}`}
+            <button
+              onClick={() => handleReorder(order)}
+              disabled={loadingReorder === order.id}
+              className={`flex-1 btn-primary ${
+                loadingReorder === order.id
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
             >
               {loadingReorder === order.id ? "Reordering..." : "Reorder"}
             </button>
@@ -165,20 +218,30 @@ const VendorOrders: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">My Orders</h1>
-        <p className="text-gray-500">Track and manage your orders with suppliers</p>
+        <p className="text-gray-500">
+          Track and manage your orders with suppliers
+        </p>
       </div>
 
       <div className="glass-card p-1">
         <div className="flex space-x-1">
           <button
             onClick={() => setActiveTab("current")}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium ${activeTab === "current" ? "bg-purple-600 text-white" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium ${
+              activeTab === "current"
+                ? "bg-purple-600 text-white"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
             Current Orders ({currentOrders.length})
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`flex-1 px-4 py-2 rounded-lg font-medium ${activeTab === "history" ? "bg-purple-600 text-white" : "text-gray-500 hover:text-gray-700"}`}
+            className={`flex-1 px-4 py-2 rounded-lg font-medium ${
+              activeTab === "history"
+                ? "bg-purple-600 text-white"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
             Order History ({orderHistory.length})
           </button>
@@ -187,27 +250,51 @@ const VendorOrders: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {activeTab === "current" ? (
-          currentOrders.length > 0 ? currentOrders.map(order => <OrderCard key={order.id} order={order} />) :
-          <EmptyState text="No current orders" />
+          currentOrders.length > 0 ? (
+            currentOrders.map((order) => (
+              <OrderCard key={order.id} order={order} />
+            ))
+          ) : (
+            <EmptyState text="No current orders" />
+          )
+        ) : orderHistory.length > 0 ? (
+          orderHistory.map((order) => (
+            <OrderCard key={order.id} order={order} showReorder />
+          ))
         ) : (
-          orderHistory.length > 0 ? orderHistory.map(order => <OrderCard key={order.id} order={order} showReorder />) :
           <EmptyState text="No order history" />
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Order Details" size="lg">
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Order Details"
+        size="lg"
+      >
         {selectedOrder && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Order #{selectedOrder.id}</h3>
+                <h3 className="text-lg font-semibold">
+                  Order #{selectedOrder.id}
+                </h3>
                 <p className="text-gray-500">
-                  Placed on {selectedOrder.date?.toDate ? selectedOrder.date.toDate().toLocaleDateString() : new Date(selectedOrder.date).toLocaleDateString()}
+                  Placed on{" "}
+                  {selectedOrder.date?.toDate
+                    ? selectedOrder.date.toDate().toLocaleDateString()
+                    : new Date(selectedOrder.date).toLocaleDateString()}
                 </p>
               </div>
-              <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getStatusColor(selectedOrder.status)}`}>
+              <div
+                className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${getStatusColor(
+                  selectedOrder.status
+                )}`}
+              >
                 {getStatusIcon(selectedOrder.status)}
-                <span className="text-sm font-medium capitalize">{selectedOrder.status}</span>
+                <span className="text-sm font-medium capitalize">
+                  {selectedOrder.status}
+                </span>
               </div>
             </div>
 
@@ -215,14 +302,26 @@ const VendorOrders: React.FC = () => {
               <h4 className="font-medium mb-3">Order Items</h4>
               <div className="space-y-3">
                 {selectedOrder.items?.map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
+                  >
                     <div>
                       <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-gray-500">Quantity: {item.qty}</p>
+                      <p className="text-sm text-gray-500">
+                        Quantity: {item.qty}
+                      </p>
                       {item.supplierId && (
-                        <p className="text-sm text-gray-500">
-                          Supplier Phone: {supplierPhones[item.supplierId] || 'Loading...'}
-                        </p>
+                        <>
+                          <p className="text-sm text-gray-500">
+                            Supplier:{" "}
+                            {supplierNames[item.supplierId] || "Loading..."}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Phone:{" "}
+                            {supplierPhones[item.supplierId] || "Loading..."}
+                          </p>
+                        </>
                       )}
                     </div>
                     <p className="font-semibold">₹{item.price * item.qty}</p>
@@ -233,7 +332,9 @@ const VendorOrders: React.FC = () => {
 
             <div className="border-t pt-4 flex justify-between">
               <span className="text-lg font-medium">Total Amount:</span>
-              <span className="text-xl font-bold text-purple-600">₹{selectedOrder.total}</span>
+              <span className="text-xl font-bold text-purple-600">
+                ₹{selectedOrder.total}
+              </span>
             </div>
           </div>
         )}
